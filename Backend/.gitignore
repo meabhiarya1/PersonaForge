@@ -1,0 +1,12 @@
+node_modules/
+.env
+npm-debug.log*
+
+src/temp/audio/*
+src/temp/avatar/*
+src/temp/captions/*
+src/temp/final/*
+!src/temp/audio/.gitkeep
+!src/temp/avatar/.gitkeep
+!src/temp/captions/.gitkeep
+!src/temp/final/.gitkeep

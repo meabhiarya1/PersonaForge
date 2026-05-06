@@ -1,0 +1,35 @@
+{
+  "name": "persona-forge-backend",
+  "version": "1.0.0",
+  "description": "Phase 1 backend for AI video generation pipeline.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "worker": "node src/jobs/workers/video.worker.js"
+  },
+  "dependencies": {
+    "@bull-board/api": "^6.7.10",
+    "@bull-board/express": "^6.7.10",
+    "axios": "^1.7.9",
+    "bullmq": "^5.34.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "fluent-ffmpeg": "^2.1.3",
+    "helmet": "^8.0.0",
+    "ioredis": "^5.4.2",
+    "morgan": "^1.10.0",
+    "mysql2": "^3.12.0",
+    "nanoid": "^5.0.9",
+    "winston": "^3.17.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
