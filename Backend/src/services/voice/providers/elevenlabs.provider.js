@@ -5,8 +5,6 @@ import { storageConfig } from '../../../config/storage.js';
 import { createFileName, ensureDir } from '../../../utils/file.js';
 import { retry } from '../../../utils/retry.js';
 
-const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM';
-
 export const generateVoiceWithElevenLabs = async (scriptData) => {
   await ensureDir(storageConfig.audioDir);
   const outputPath = `${storageConfig.audioDir}/${createFileName('voice', 'mp3')}`;
@@ -19,7 +17,7 @@ export const generateVoiceWithElevenLabs = async (scriptData) => {
 
   const response = await retry(() =>
     axios.post(
-      `https://api.elevenlabs.io/v1/text-to-speech/${DEFAULT_VOICE_ID}`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${env.elevenLabsVoiceId}`,
       {
         text,
         model_id: 'eleven_multilingual_v2',

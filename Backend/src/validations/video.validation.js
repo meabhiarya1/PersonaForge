@@ -5,7 +5,7 @@ const generateVideoSchema = z.object({
   topic: z.string().min(3),
   notes: z.string().optional().default(''),
   language: z.string().optional().default('English'),
-  duration: z.number().int().min(15).max(600).optional().default(60),
+  duration: z.coerce.number().int().min(15).max(600).optional().default(60),
   targetAudience: z.string().optional().default('general audience'),
   style: z.string().optional().default('educational'),
   avatarId: z.string().optional().default('default-avatar')

@@ -1,1 +1,46 @@
+import { JOB_STATUS } from '../constants/jobStatus.js';
+import {
+  VIDEO_PROJECT_COLUMNS,
+  VIDEO_PROJECT_TABLE
+} from './VideoProject.model.js';
+
 export const VIDEO_JOB_TABLE = 'video_jobs';
+
+export const VIDEO_JOB_COLUMNS = {
+  ID: 'id',
+  PROJECT_ID: 'project_id',
+  QUEUE_JOB_ID: 'queue_job_id',
+  STATUS: 'status',
+  CURRENT_STEP: 'current_step',
+  ERROR_MESSAGE: 'error_message',
+  CREATED_AT: 'created_at',
+  UPDATED_AT: 'updated_at'
+};
+
+const statusValues = Object.values(JOB_STATUS).map((status) => `'${status}'`).join(', ');
+
+export const VIDEO_JOB_INDEXES = {
+  PROJECT_ID: 'idx_video_jobs_project_id',
+  QUEUE_JOB_ID: 'idx_video_jobs_queue_job_id',
+  STATUS: 'idx_video_jobs_status'
+};
+
+export const CREATE_VIDEO_JOB_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS ${VIDEO_JOB_TABLE} (
+    ${VIDEO_JOB_COLUMNS.ID} CHAR(36) PRIMARY KEY,
+    ${VIDEO_JOB_COLUMNS.PROJECT_ID} CHAR(36) NOT NULL,
+    ${VIDEO_JOB_COLUMNS.QUEUE_JOB_ID} VARCHAR(255) NULL,
+    ${VIDEO_JOB_COLUMNS.STATUS} ENUM(${statusValues}) DEFAULT '${JOB_STATUS.QUEUED}',
+    ${VIDEO_JOB_COLUMNS.CURRENT_STEP} VARCHAR(100) NULL,
+    ${VIDEO_JOB_COLUMNS.ERROR_MESSAGE} TEXT NULL,
+    ${VIDEO_JOB_COLUMNS.CREATED_AT} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ${VIDEO_JOB_COLUMNS.UPDATED_AT} TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX ${VIDEO_JOB_INDEXES.PROJECT_ID} (${VIDEO_JOB_COLUMNS.PROJECT_ID}),
+    UNIQUE INDEX ${VIDEO_JOB_INDEXES.QUEUE_JOB_ID} (${VIDEO_JOB_COLUMNS.QUEUE_JOB_ID}),
+    INDEX ${VIDEO_JOB_INDEXES.STATUS} (${VIDEO_JOB_COLUMNS.STATUS}),
+    CONSTRAINT fk_video_jobs_project_id
+      FOREIGN KEY (${VIDEO_JOB_COLUMNS.PROJECT_ID})
+      REFERENCES ${VIDEO_PROJECT_TABLE}(${VIDEO_PROJECT_COLUMNS.ID})
+      ON DELETE CASCADE
+  )
+`;

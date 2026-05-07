@@ -1,120 +1,189 @@
-import { nanoid } from 'nanoid';
-import { db } from '../../config/db.js';
-import { VIDEO_PROJECT_TABLE } from '../../models/VideoProject.model.js';
-import { VIDEO_JOB_TABLE } from '../../models/VideoJob.model.js';
+import { randomUUID } from 'crypto';
+import { query } from '../../config/db.js';
+import {
+  VIDEO_PROJECT_COLUMNS,
+  VIDEO_PROJECT_TABLE
+} from '../../models/VideoProject.model.js';
+import {
+  VIDEO_JOB_COLUMNS,
+  VIDEO_JOB_TABLE
+} from '../../models/VideoJob.model.js';
 import AppError from '../../utils/AppError.js';
 import { JOB_STATUS } from '../../constants/jobStatus.js';
-import { VIDEO_STATUS } from '../../constants/videoStatus.js';
+import { safeJsonParse, safeJsonStringify } from '../../utils/json.js';
 
-const parseJson = (value) => {
-  if (!value) return null;
-  return typeof value === 'string' ? JSON.parse(value) : value;
+const projectColumnMap = {
+  topic: VIDEO_PROJECT_COLUMNS.TOPIC,
+  notes: VIDEO_PROJECT_COLUMNS.NOTES,
+  language: VIDEO_PROJECT_COLUMNS.LANGUAGE,
+  duration: VIDEO_PROJECT_COLUMNS.DURATION,
+  targetAudience: VIDEO_PROJECT_COLUMNS.TARGET_AUDIENCE,
+  style: VIDEO_PROJECT_COLUMNS.STYLE,
+  avatarId: VIDEO_PROJECT_COLUMNS.AVATAR_ID,
+  scriptData: VIDEO_PROJECT_COLUMNS.SCRIPT_DATA,
+  audioUrl: VIDEO_PROJECT_COLUMNS.AUDIO_URL,
+  avatarVideoUrl: VIDEO_PROJECT_COLUMNS.AVATAR_VIDEO_URL,
+  captionUrl: VIDEO_PROJECT_COLUMNS.CAPTION_URL,
+  finalVideoUrl: VIDEO_PROJECT_COLUMNS.FINAL_VIDEO_URL,
+  status: VIDEO_PROJECT_COLUMNS.STATUS,
+  errorMessage: VIDEO_PROJECT_COLUMNS.ERROR_MESSAGE
 };
 
-const mapProject = (row) => {
+const jobColumnMap = {
+  projectId: VIDEO_JOB_COLUMNS.PROJECT_ID,
+  queueJobId: VIDEO_JOB_COLUMNS.QUEUE_JOB_ID,
+  status: VIDEO_JOB_COLUMNS.STATUS,
+  currentStep: VIDEO_JOB_COLUMNS.CURRENT_STEP,
+  errorMessage: VIDEO_JOB_COLUMNS.ERROR_MESSAGE
+};
+
+const mapProjectRow = (row) => {
   if (!row) return null;
 
   return {
-    id: row.id,
-    topic: row.topic,
-    notes: row.notes,
-    language: row.language,
-    duration: row.duration,
-    targetAudience: row.target_audience,
-    style: row.style,
-    avatarId: row.avatar_id,
-    scriptData: parseJson(row.script_data),
-    audioUrl: row.audio_url,
-    avatarVideoUrl: row.avatar_video_url,
-    captionUrl: row.caption_url,
-    finalVideoUrl: row.final_video_url,
-    status: row.status,
-    errorMessage: row.error_message,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
+    id: row[VIDEO_PROJECT_COLUMNS.ID],
+    topic: row[VIDEO_PROJECT_COLUMNS.TOPIC],
+    notes: row[VIDEO_PROJECT_COLUMNS.NOTES],
+    language: row[VIDEO_PROJECT_COLUMNS.LANGUAGE],
+    duration: row[VIDEO_PROJECT_COLUMNS.DURATION],
+    targetAudience: row[VIDEO_PROJECT_COLUMNS.TARGET_AUDIENCE],
+    style: row[VIDEO_PROJECT_COLUMNS.STYLE],
+    avatarId: row[VIDEO_PROJECT_COLUMNS.AVATAR_ID],
+    scriptData: safeJsonParse(row[VIDEO_PROJECT_COLUMNS.SCRIPT_DATA]),
+    audioUrl: row[VIDEO_PROJECT_COLUMNS.AUDIO_URL],
+    avatarVideoUrl: row[VIDEO_PROJECT_COLUMNS.AVATAR_VIDEO_URL],
+    captionUrl: row[VIDEO_PROJECT_COLUMNS.CAPTION_URL],
+    finalVideoUrl: row[VIDEO_PROJECT_COLUMNS.FINAL_VIDEO_URL],
+    status: row[VIDEO_PROJECT_COLUMNS.STATUS],
+    errorMessage: row[VIDEO_PROJECT_COLUMNS.ERROR_MESSAGE],
+    createdAt: row[VIDEO_PROJECT_COLUMNS.CREATED_AT],
+    updatedAt: row[VIDEO_PROJECT_COLUMNS.UPDATED_AT]
   };
 };
 
-const mapVideoJob = (row) => {
+const mapJobRow = (row) => {
   if (!row) return null;
 
   return {
-    id: row.id,
-    projectId: row.project_id,
-    queueJobId: row.queue_job_id,
-    status: row.status,
-    currentStep: row.current_step,
-    errorMessage: row.error_message,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
+    id: row[VIDEO_JOB_COLUMNS.ID],
+    projectId: row[VIDEO_JOB_COLUMNS.PROJECT_ID],
+    queueJobId: row[VIDEO_JOB_COLUMNS.QUEUE_JOB_ID],
+    status: row[VIDEO_JOB_COLUMNS.STATUS],
+    currentStep: row[VIDEO_JOB_COLUMNS.CURRENT_STEP],
+    errorMessage: row[VIDEO_JOB_COLUMNS.ERROR_MESSAGE],
+    createdAt: row[VIDEO_JOB_COLUMNS.CREATED_AT],
+    updatedAt: row[VIDEO_JOB_COLUMNS.UPDATED_AT]
   };
 };
 
-const toProjectUpdateColumns = (updates) => {
-  const allowed = {
-    scriptData: ['script_data', JSON.stringify],
-    audioUrl: ['audio_url'],
-    avatarVideoUrl: ['avatar_video_url'],
-    captionUrl: ['caption_url'],
-    finalVideoUrl: ['final_video_url'],
-    errorMessage: ['error_message']
-  };
+const normalizeProjectValue = (key, value) => {
+  if (key === 'scriptData') {
+    return safeJsonStringify(value);
+  }
 
-  return Object.entries(updates)
-    .filter(([key]) => Object.hasOwn(allowed, key))
-    .map(([key, value]) => {
-      const [column, transform = (item) => item] = allowed[key];
-      return [column, transform(value)];
-    });
+  return value ?? null;
 };
 
-export const createProject = async (input) => {
-  const projectId = nanoid(16);
+const normalizeJobValue = (key, value) => value ?? null;
 
-  await db.execute(
+const buildUpdate = (data, columnMap, normalizeValue) => {
+  const entries = Object.entries(data).filter(([key]) => Object.hasOwn(columnMap, key));
+  const assignments = [];
+  const params = {};
+
+  entries.forEach(([key, value], index) => {
+    const paramName = `value${index}`;
+    assignments.push(`${columnMap[key]} = :${paramName}`);
+    params[paramName] = normalizeValue(key, value);
+  });
+
+  return { assignments, params };
+};
+
+export const createVideoProject = async (input) => {
+  const projectId = randomUUID();
+
+  await query(
     `INSERT INTO ${VIDEO_PROJECT_TABLE}
-      (id, topic, notes, language, duration, target_audience, style, avatar_id, status)
+      (
+        ${VIDEO_PROJECT_COLUMNS.ID},
+        ${VIDEO_PROJECT_COLUMNS.TOPIC},
+        ${VIDEO_PROJECT_COLUMNS.NOTES},
+        ${VIDEO_PROJECT_COLUMNS.LANGUAGE},
+        ${VIDEO_PROJECT_COLUMNS.DURATION},
+        ${VIDEO_PROJECT_COLUMNS.TARGET_AUDIENCE},
+        ${VIDEO_PROJECT_COLUMNS.STYLE},
+        ${VIDEO_PROJECT_COLUMNS.AVATAR_ID},
+        ${VIDEO_PROJECT_COLUMNS.STATUS}
+      )
      VALUES
-      (:id, :topic, :notes, :language, :duration, :targetAudience, :style, :avatarId, :status)`,
+      (
+        :id,
+        :topic,
+        :notes,
+        :language,
+        :duration,
+        :targetAudience,
+        :style,
+        :avatarId,
+        :status
+      )`,
     {
       id: projectId,
       topic: input.topic,
       notes: input.notes || null,
-      language: input.language,
-      duration: input.duration,
-      targetAudience: input.targetAudience,
-      style: input.style,
-      avatarId: input.avatarId,
-      status: VIDEO_STATUS.QUEUED
+      language: input.language || 'English',
+      duration: input.duration || 60,
+      targetAudience: input.targetAudience || null,
+      style: input.style || null,
+      avatarId: input.avatarId || null,
+      status: JOB_STATUS.QUEUED
     }
   );
 
-  return getProjectById(projectId);
+  return getVideoProjectById(projectId);
 };
 
 export const createVideoJob = async ({ projectId, queueJobId }) => {
-  await db.execute(
+  const jobId = randomUUID();
+
+  await query(
     `INSERT INTO ${VIDEO_JOB_TABLE}
-      (project_id, queue_job_id, status, current_step)
+      (
+        ${VIDEO_JOB_COLUMNS.ID},
+        ${VIDEO_JOB_COLUMNS.PROJECT_ID},
+        ${VIDEO_JOB_COLUMNS.QUEUE_JOB_ID},
+        ${VIDEO_JOB_COLUMNS.STATUS},
+        ${VIDEO_JOB_COLUMNS.CURRENT_STEP}
+      )
      VALUES
-      (:projectId, :queueJobId, :status, :currentStep)`,
+      (
+        :id,
+        :projectId,
+        :queueJobId,
+        :status,
+        :currentStep
+      )`,
     {
+      id: jobId,
       projectId,
-      queueJobId,
+      queueJobId: queueJobId || null,
       status: JOB_STATUS.QUEUED,
       currentStep: JOB_STATUS.QUEUED
     }
   );
 
-  return getVideoJobById(queueJobId);
+  return getVideoJobById(jobId);
 };
 
-export const getProjectById = async (projectId) => {
-  const [rows] = await db.execute(
-    `SELECT * FROM ${VIDEO_PROJECT_TABLE} WHERE id = :projectId LIMIT 1`,
+export const getVideoProjectById = async (projectId) => {
+  const rows = await query(
+    `SELECT * FROM ${VIDEO_PROJECT_TABLE}
+     WHERE ${VIDEO_PROJECT_COLUMNS.ID} = :projectId
+     LIMIT 1`,
     { projectId }
   );
-  const project = mapProject(rows[0]);
+  const project = mapProjectRow(rows[0]);
 
   if (!project) {
     throw new AppError('Video project not found', 404);
@@ -124,11 +193,13 @@ export const getProjectById = async (projectId) => {
 };
 
 export const getVideoJobById = async (jobId) => {
-  const [rows] = await db.execute(
-    `SELECT * FROM ${VIDEO_JOB_TABLE} WHERE queue_job_id = :jobId LIMIT 1`,
+  const rows = await query(
+    `SELECT * FROM ${VIDEO_JOB_TABLE}
+     WHERE ${VIDEO_JOB_COLUMNS.ID} = :jobId
+     LIMIT 1`,
     { jobId }
   );
-  const videoJob = mapVideoJob(rows[0]);
+  const videoJob = mapJobRow(rows[0]);
 
   if (!videoJob) {
     throw new AppError('Video job not found', 404);
@@ -137,41 +208,86 @@ export const getVideoJobById = async (jobId) => {
   return videoJob;
 };
 
-export const updateProjectStatus = async (projectId, status, updates = {}) => {
-  const updateColumns = toProjectUpdateColumns(updates);
-  const assignments = ['status = :status'];
-  const params = { projectId, status };
-
-  updateColumns.forEach(([column, value], index) => {
-    const paramName = `value${index}`;
-    assignments.push(`${column} = :${paramName}`);
-    params[paramName] = value;
-  });
-
-  await db.execute(
-    `UPDATE ${VIDEO_PROJECT_TABLE}
-     SET ${assignments.join(', ')}
-     WHERE id = :projectId`,
-    params
+export const getVideoJobByQueueJobId = async (queueJobId) => {
+  const rows = await query(
+    `SELECT * FROM ${VIDEO_JOB_TABLE}
+     WHERE ${VIDEO_JOB_COLUMNS.QUEUE_JOB_ID} = :queueJobId
+     LIMIT 1`,
+    { queueJobId }
   );
+  const videoJob = mapJobRow(rows[0]);
 
-  return getProjectById(projectId);
+  if (!videoJob) {
+    throw new AppError('Video job not found', 404);
+  }
+
+  return videoJob;
 };
 
-export const updateJobStatus = async (queueJobId, status, updates = {}) => {
-  await db.execute(
-    `UPDATE ${VIDEO_JOB_TABLE}
-     SET status = :status,
-         current_step = :currentStep,
-         error_message = :errorMessage
-     WHERE queue_job_id = :queueJobId`,
-    {
-      queueJobId,
-      status,
-      currentStep: updates.currentStep || status,
-      errorMessage: updates.errorMessage || null
-    }
+export const updateVideoProject = async (projectId, data) => {
+  const { assignments, params } = buildUpdate(data, projectColumnMap, normalizeProjectValue);
+
+  if (!assignments.length) {
+    return getVideoProjectById(projectId);
+  }
+
+  await query(
+    `UPDATE ${VIDEO_PROJECT_TABLE}
+     SET ${assignments.join(', ')}
+     WHERE ${VIDEO_PROJECT_COLUMNS.ID} = :projectId`,
+    { ...params, projectId }
   );
 
-  return getVideoJobById(queueJobId);
+  return getVideoProjectById(projectId);
+};
+
+export const updateVideoJob = async (jobId, data) => {
+  const { assignments, params } = buildUpdate(data, jobColumnMap, normalizeJobValue);
+
+  if (!assignments.length) {
+    return getVideoJobById(jobId);
+  }
+
+  await query(
+    `UPDATE ${VIDEO_JOB_TABLE}
+     SET ${assignments.join(', ')}
+     WHERE ${VIDEO_JOB_COLUMNS.ID} = :jobId`,
+    { ...params, jobId }
+  );
+
+  return getVideoJobById(jobId);
+};
+
+export const updateProjectAndJobStatus = async ({
+  projectId,
+  jobId,
+  status,
+  currentStep = status,
+  projectData = {},
+  jobData = {}
+}) => {
+  const [project, videoJob] = await Promise.all([
+    updateVideoProject(projectId, {
+      ...projectData,
+      status
+    }),
+    updateVideoJob(jobId, {
+      ...jobData,
+      status,
+      currentStep
+    })
+  ]);
+
+  return { project, job: videoJob };
+};
+
+export const markProjectFailed = async ({ projectId, jobId, errorMessage }) => {
+  return updateProjectAndJobStatus({
+    projectId,
+    jobId,
+    status: JOB_STATUS.FAILED,
+    currentStep: JOB_STATUS.FAILED,
+    projectData: { errorMessage },
+    jobData: { errorMessage }
+  });
 };

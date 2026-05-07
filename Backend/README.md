@@ -1,8 +1,8 @@
 # PersonaForge Backend
 
-Phase 1 backend for an AI video generation platform.
+Phase 1 backend for PersonaForge, an AI video generation platform.
 
-The user submits a topic, prompt, or notes. The backend creates a queued video generation job and runs this pipeline:
+The user submits a topic, prompt, or notes. The backend creates a queued job and runs this pipeline:
 
 ```text
 User input
@@ -16,13 +16,69 @@ User input
 ## Tech Stack
 
 - Node.js + Express
-- MySQL
+- MySQL with `mysql2/promise`
 - Redis + BullMQ
 - Bull Board dashboard
 - FFmpeg
 - OpenAI provider for script generation
 - ElevenLabs provider for voice generation
 - D-ID provider for avatar/lip-sync generation
+
+## Architecture
+
+The API follows this flow:
+
+```text
+route -> controller -> service -> model SQL constants -> db query
+```
+
+The video generation pipeline follows this flow:
+
+```text
+route -> controller -> BullMQ queue -> worker -> processor -> script/voice/avatar/caption/render services
+```
+
+Controllers do not contain SQL queries or external API calls. Provider-specific API logic stays inside each service's `providers` folder so providers can be replaced later.
+
+## Database Architecture
+
+This backend uses MySQL, not MongoDB.
+
+The files in `src/models` are MySQL table schema definitions, not MongoDB models and not ORM models.
+
+```text
+src/models/VideoProject.model.js
+src/models/VideoJob.model.js
+```
+
+Each model file exports:
+
+- table name
+- column constants
+- index names
+- `CREATE TABLE` SQL
+
+Database initialization lives in:
+
+```text
+src/config/db.js
+```
+
+It creates:
+
+1. the configured database if it does not exist
+2. `video_projects`
+3. `video_jobs`
+
+The `video_projects` table is created before `video_jobs` because `video_jobs.project_id` has a foreign key to `video_projects.id`.
+
+Database operations live in:
+
+```text
+src/services/project/project.service.js
+```
+
+The service uses `mysql2/promise` and parameterized queries. SQL is not placed in controllers.
 
 ## Project Structure
 
@@ -32,10 +88,16 @@ Backend/
     app.js
     server.js
     config/
+      db.js
+      redis.js
+      bullBoard.js
     routes/
     controllers/
     services/
     jobs/
+      queues/
+      workers/
+      processors/
     models/
     utils/
     validations/
@@ -43,26 +105,12 @@ Backend/
     temp/
 ```
 
-The code follows this rule:
-
-```text
-route -> controller -> service
-```
-
-Routes only define endpoints. Controllers handle request and response. Services contain business logic. Provider-specific API calls stay inside each service's `providers` folder.
-
 ## Requirements
 
 - Node.js 20+
-- MySQL running locally or remotely
-- Redis running locally or remotely
-- FFmpeg installed
-
-Check FFmpeg:
-
-```bash
-ffmpeg -version
-```
+- MySQL
+- Redis
+- FFmpeg
 
 Check Redis:
 
@@ -76,9 +124,13 @@ Expected:
 PONG
 ```
 
-## Setup
+Check FFmpeg:
 
-From the repository root:
+```bash
+ffmpeg -version
+```
+
+## Setup
 
 ```bash
 cd Backend
@@ -90,11 +142,10 @@ Update `.env`:
 
 ```env
 PORT=6001
-
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=your_mysql_password
+DB_PASSWORD=
 DB_NAME=persona_forge
 
 REDIS_HOST=127.0.0.1
@@ -102,14 +153,13 @@ REDIS_PORT=6379
 
 OPENAI_API_KEY=
 ELEVENLABS_API_KEY=
+ELEVENLABS_VOICE_ID=
 DID_API_KEY=
 
 BASE_URL=http://localhost:6001
 ```
 
-Do not use port `6000` in a browser. Many browsers block it as an unsafe port. Use `6001`, `5000`, or another allowed port.
-
-The app creates the MySQL database and required tables automatically on startup if the configured MySQL user has permission.
+Avoid `PORT=6000` in browsers. Many browsers block it as an unsafe port. Use `6001`, `5000`, or another allowed port.
 
 ## Run
 
@@ -125,15 +175,15 @@ Start the BullMQ worker in another terminal:
 npm run worker
 ```
 
-Production-style server:
+Production-style start:
 
 ```bash
 npm start
 ```
 
-## BullMQ Dashboard
+## Bull Board
 
-Open Bull Board:
+Open the BullMQ dashboard:
 
 ```text
 http://localhost:6001/admin/queues
@@ -141,14 +191,7 @@ http://localhost:6001/admin/queues
 
 It shows jobs from the `video-generation` queue, including waiting, active, completed, and failed jobs.
 
-If the page does not load:
-
-- Confirm the API server is running on the same port as `.env`.
-- Confirm Redis is running.
-- Restart `npm run dev` after changing `.env`.
-- Use `/admin/queues`, not port `6000`.
-
-## API Endpoints
+## API
 
 ### Health Check
 
@@ -156,13 +199,11 @@ If the page does not load:
 GET /health
 ```
 
-Example:
-
 ```bash
 curl http://localhost:6001/health
 ```
 
-### Create Video Generation Job
+### Create Video Job
 
 ```http
 POST /api/videos/generate
@@ -205,8 +246,9 @@ Response:
   "success": true,
   "message": "Video generation started",
   "data": {
-    "projectId": "exampleProjectId",
-    "jobId": "exampleJobId"
+    "projectId": "project-uuid",
+    "jobId": "mysql-job-uuid",
+    "queueJobId": "bullmq-job-id"
   }
 }
 ```
@@ -217,13 +259,27 @@ Response:
 GET /api/jobs/:jobId
 ```
 
-Example:
+`jobId` is the MySQL job ID returned by `POST /api/videos/generate`.
 
 ```bash
-curl http://localhost:6001/api/jobs/exampleJobId
+curl http://localhost:6001/api/jobs/mysql-job-uuid
 ```
 
-Possible statuses:
+### Get Video Project
+
+```http
+GET /api/videos/:projectId
+```
+
+```bash
+curl http://localhost:6001/api/videos/project-uuid
+```
+
+The response includes input fields, generated script data, audio URL, avatar video URL, caption URL, final video URL, status, and error message if failed.
+
+## Status Values
+
+Both project and job rows use the shared `JOB_STATUS` constants:
 
 ```text
 queued
@@ -237,38 +293,26 @@ completed
 failed
 ```
 
-### Get Video Project
-
-```http
-GET /api/videos/:projectId
-```
-
-Example:
-
-```bash
-curl http://localhost:6001/api/videos/exampleProjectId
-```
-
-Returns project input, generated script, audio URL, avatar video URL, caption URL, final video URL, status, and error message if failed.
-
 ## BullMQ Flow
-
-The queue implementation follows the create, add, and process pattern:
 
 - Create queue: `src/jobs/queues/video.queue.js`
 - Add job: `src/controllers/video.controller.js`
 - Process job: `src/jobs/workers/video.worker.js`
 - Pipeline logic: `src/jobs/processors/generateVideo.processor.js`
 
-The worker runs:
+The worker updates both MySQL rows at every step:
 
 ```text
-generateScript
--> generateVoice
--> generateAvatar
--> generateCaptions
--> renderFinalVideo
+processing
+script_generated
+voice_generated
+avatar_generated
+caption_generated
+rendering
+completed
 ```
+
+If any step fails, the worker marks both the project and job as `failed`, saves `error_message`, and rethrows the error so BullMQ marks the queue job failed.
 
 ## Local File Storage
 
@@ -281,17 +325,17 @@ src/temp/captions/
 src/temp/final/
 ```
 
-Public URLs are served from:
+They are served publicly from:
 
 ```text
 /temp/...
 ```
 
-This is intentionally simple for Phase 1. The `storage.service.js` file is the future replacement point for AWS S3 or another storage provider.
+This is intentionally simple for Phase 1. `src/services/storage/storage.service.js` is the replacement point for S3 or another storage provider later.
 
 ## Provider Notes
 
-Provider-specific code lives here:
+Provider code lives here:
 
 ```text
 src/services/script/providers/openai.provider.js
@@ -299,13 +343,13 @@ src/services/voice/providers/elevenlabs.provider.js
 src/services/avatar/providers/did.provider.js
 ```
 
-This makes it easier to replace:
+Current Phase 1 uses external APIs, but providers are replaceable later:
 
-- OpenAI with a local or fine-tuned LLM
-- ElevenLabs with a local voice model
-- D-ID with a local avatar/lip-sync model
+- OpenAI can be replaced by a local or fine-tuned LLM.
+- ElevenLabs can be replaced by a local voice model.
+- D-ID can be replaced by a local avatar/lip-sync model.
 
-When testing D-ID locally, `BASE_URL` must be publicly reachable because D-ID needs to fetch the generated audio URL. Use a tunnel such as ngrok and set:
+D-ID requires a public `BASE_URL` during local testing because it must fetch the generated audio URL. Use a tunnel such as ngrok:
 
 ```env
 BASE_URL=https://your-ngrok-url.ngrok-free.app
@@ -313,49 +357,37 @@ BASE_URL=https://your-ngrok-url.ngrok-free.app
 
 ## Troubleshooting
 
-### Bull Board Shows Nothing
+### Bull Board Does Not Show Jobs
 
-Check the correct URL:
+Open:
 
 ```text
 http://localhost:6001/admin/queues
 ```
 
-Check Redis:
+Make sure Redis is running:
 
 ```bash
 redis-cli ping
 ```
 
-Create a job with `POST /api/videos/generate`, then refresh the dashboard.
-
-### Browser Blocks Port
-
-Avoid:
-
-```text
-PORT=6000
-```
-
-Use:
-
-```text
-PORT=6001
-```
+Create a job using `POST /api/videos/generate`, then refresh Bull Board.
 
 ### Worker Does Not Process Jobs
 
-Run the worker separately:
+The API server only creates jobs. The worker processes jobs.
+
+Run:
 
 ```bash
 npm run worker
 ```
 
-The API server only creates jobs. The worker processes them.
+### MySQL Fails On Startup
 
-### MySQL Startup Fails
+Check `.env` DB credentials and confirm MySQL is running. The configured user must be able to create the database and tables.
 
-Check `.env` DB credentials and confirm MySQL is running. The configured user must be able to create the `persona_forge` database and tables.
+If you previously ran an older development schema, recreate or migrate the local tables so they match the SQL definitions in `src/models`.
 
 ## Scripts
 

@@ -1,6 +1,5 @@
 import logger from '../../config/logger.js';
 import { JOB_STATUS } from '../../constants/jobStatus.js';
-import { VIDEO_STATUS } from '../../constants/videoStatus.js';
 import { generateScript } from '../../services/script/script.service.js';
 import { generateVoice } from '../../services/voice/voice.service.js';
 import { generateAvatar } from '../../services/avatar/avatar.service.js';
@@ -8,36 +7,40 @@ import { generateCaptions } from '../../services/caption/caption.service.js';
 import { createFinalOutputPath, renderFinalVideo } from '../../services/render/render.service.js';
 import { getPublicUrl } from '../../services/storage/storage.service.js';
 import {
-  updateJobStatus,
-  updateProjectStatus
+  getVideoJobByQueueJobId,
+  markProjectFailed,
+  updateProjectAndJobStatus
 } from '../../services/project/project.service.js';
 
-const setStep = async ({ projectId, queueJobId, jobStatus, videoStatus, updates = {} }) => {
-  await Promise.all([
-    updateJobStatus(queueJobId, jobStatus, updates),
-    updateProjectStatus(projectId, videoStatus, updates)
-  ]);
+const setStep = async ({ projectId, jobId, status, updates = {} }) => {
+  await updateProjectAndJobStatus({
+    projectId,
+    jobId,
+    status,
+    currentStep: status,
+    projectData: updates
+  });
 };
 
 export const generateVideoProcessor = async (job) => {
   const { projectId, input } = job.data;
   const queueJobId = job.id;
+  const videoJob = await getVideoJobByQueueJobId(queueJobId);
+  const jobId = videoJob.id;
 
   try {
     await setStep({
       projectId,
-      queueJobId,
-      jobStatus: JOB_STATUS.PROCESSING,
-      videoStatus: VIDEO_STATUS.PROCESSING
+      jobId,
+      status: JOB_STATUS.PROCESSING
     });
 
     logger.info('SCRIPT_GENERATION_STARTED', { projectId, queueJobId });
     const scriptData = await generateScript(input);
     await setStep({
       projectId,
-      queueJobId,
-      jobStatus: JOB_STATUS.SCRIPT_GENERATED,
-      videoStatus: VIDEO_STATUS.SCRIPT_GENERATED,
+      jobId,
+      status: JOB_STATUS.SCRIPT_GENERATED,
       updates: { scriptData }
     });
     logger.info('SCRIPT_GENERATION_COMPLETED', { projectId, queueJobId });
@@ -47,9 +50,8 @@ export const generateVideoProcessor = async (job) => {
     const audioUrl = getPublicUrl(audioPath);
     await setStep({
       projectId,
-      queueJobId,
-      jobStatus: JOB_STATUS.VOICE_GENERATED,
-      videoStatus: VIDEO_STATUS.VOICE_GENERATED,
+      jobId,
+      status: JOB_STATUS.VOICE_GENERATED,
       updates: { audioUrl }
     });
     logger.info('VOICE_GENERATION_COMPLETED', { projectId, queueJobId });
@@ -63,9 +65,8 @@ export const generateVideoProcessor = async (job) => {
     const avatarVideoUrl = getPublicUrl(avatarVideoPath);
     await setStep({
       projectId,
-      queueJobId,
-      jobStatus: JOB_STATUS.AVATAR_GENERATED,
-      videoStatus: VIDEO_STATUS.AVATAR_GENERATED,
+      jobId,
+      status: JOB_STATUS.AVATAR_GENERATED,
       updates: { avatarVideoUrl }
     });
     logger.info('AVATAR_GENERATION_COMPLETED', { projectId, queueJobId });
@@ -75,9 +76,8 @@ export const generateVideoProcessor = async (job) => {
     const captionUrl = getPublicUrl(captionPath);
     await setStep({
       projectId,
-      queueJobId,
-      jobStatus: JOB_STATUS.CAPTION_GENERATED,
-      videoStatus: VIDEO_STATUS.CAPTION_GENERATED,
+      jobId,
+      status: JOB_STATUS.CAPTION_GENERATED,
       updates: { captionUrl }
     });
     logger.info('CAPTION_GENERATION_COMPLETED', { projectId, queueJobId });
@@ -85,9 +85,8 @@ export const generateVideoProcessor = async (job) => {
     logger.info('RENDERING_STARTED', { projectId, queueJobId });
     await setStep({
       projectId,
-      queueJobId,
-      jobStatus: JOB_STATUS.RENDERING,
-      videoStatus: VIDEO_STATUS.RENDERING
+      jobId,
+      status: JOB_STATUS.RENDERING
     });
     const outputPath = await createFinalOutputPath();
     const finalVideoPath = await renderFinalVideo({
@@ -98,9 +97,8 @@ export const generateVideoProcessor = async (job) => {
     const finalVideoUrl = getPublicUrl(finalVideoPath);
     await setStep({
       projectId,
-      queueJobId,
-      jobStatus: JOB_STATUS.COMPLETED,
-      videoStatus: VIDEO_STATUS.COMPLETED,
+      jobId,
+      status: JOB_STATUS.COMPLETED,
       updates: { finalVideoUrl, errorMessage: null }
     });
     logger.info('RENDERING_COMPLETED', { projectId, queueJobId });
@@ -113,12 +111,10 @@ export const generateVideoProcessor = async (job) => {
       error: error.message
     });
 
-    await setStep({
+    await markProjectFailed({
       projectId,
-      queueJobId,
-      jobStatus: JOB_STATUS.FAILED,
-      videoStatus: VIDEO_STATUS.FAILED,
-      updates: { errorMessage: error.message }
+      jobId,
+      errorMessage: error.message
     });
 
     throw error;
