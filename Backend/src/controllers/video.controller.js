@@ -5,7 +5,8 @@ import { validateGenerateVideoInput } from '../validations/video.validation.js';
 import {
   createVideoProject,
   createVideoJob,
-  getVideoProjectById
+  getVideoProjectById,
+  markProjectFailed
 } from '../services/project/project.service.js';
 import { addVideoGenerationJob } from '../jobs/queues/video.queue.js';
 
@@ -18,11 +19,20 @@ export const generateVideo = asyncHandler(async (req, res) => {
     queueJobId
   });
 
-  await addVideoGenerationJob({
-    projectId: project.id,
-    input,
-    queueJobId
-  });
+  try {
+    await addVideoGenerationJob({
+      projectId: project.id,
+      input,
+      queueJobId
+    });
+  } catch (error) {
+    await markProjectFailed({
+      projectId: project.id,
+      jobId: videoJob.id,
+      errorMessage: `Queue submission failed: ${error.message}`
+    });
+    throw error;
+  }
 
   sendSuccess(
     res,

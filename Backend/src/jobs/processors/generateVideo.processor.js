@@ -6,6 +6,7 @@ import { generateAvatar } from '../../services/avatar/avatar.service.js';
 import { generateCaptions } from '../../services/caption/caption.service.js';
 import { createFinalOutputPath, renderFinalVideo } from '../../services/render/render.service.js';
 import { getPublicUrl } from '../../services/storage/storage.service.js';
+import { getMediaDuration } from '../../utils/media.js';
 import {
   getVideoJobByQueueJobId,
   markProjectFailed,
@@ -46,7 +47,8 @@ export const generateVideoProcessor = async (job) => {
     logger.info('SCRIPT_GENERATION_COMPLETED', { projectId, queueJobId });
 
     logger.info('VOICE_GENERATION_STARTED', { projectId, queueJobId });
-    const audioPath = await generateVoice(scriptData);
+    const audioPath = await generateVoice(scriptData, { duration: input.duration });
+    const audioDuration = await getMediaDuration(audioPath);
     const audioUrl = getPublicUrl(audioPath);
     await setStep({
       projectId,
@@ -72,7 +74,7 @@ export const generateVideoProcessor = async (job) => {
     logger.info('AVATAR_GENERATION_COMPLETED', { projectId, queueJobId });
 
     logger.info('CAPTION_GENERATION_STARTED', { projectId, queueJobId });
-    const captionPath = await generateCaptions(scriptData, input.duration);
+    const captionPath = await generateCaptions(scriptData, audioDuration);
     const captionUrl = getPublicUrl(captionPath);
     await setStep({
       projectId,

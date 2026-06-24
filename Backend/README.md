@@ -20,6 +20,12 @@ User input
 - Redis + BullMQ
 - Bull Board dashboard
 - FFmpeg
+
+The FFmpeg build must include the `subtitles` filter (libass). Verify it with:
+
+```bash
+ffmpeg -hide_banner -filters | grep subtitles
+```
 - OpenAI provider for script generation
 - ElevenLabs provider for voice generation
 - D-ID provider for avatar/lip-sync generation
@@ -155,9 +161,22 @@ OPENAI_API_KEY=
 ELEVENLABS_API_KEY=
 ELEVENLABS_VOICE_ID=
 DID_API_KEY=
+DID_POLL_INTERVAL_MS=5000
+DID_TIMEOUT_MS=600000
 
 BASE_URL=http://localhost:6001
+ALLOW_MOCK_PROVIDERS=false
+FFMPEG_PATH=ffmpeg
+FFPROBE_PATH=ffprobe
 ```
+
+Set `ALLOW_MOCK_PROVIDERS=true` only for local infrastructure tests. Mock mode creates
+valid silent audio and a timed placeholder avatar video, so the queue, captions, and
+FFmpeg render can be tested without spending provider credits. With mock mode disabled,
+missing provider credentials fail the job instead of returning a misleading completed result.
+
+When using D-ID, `avatarId` must be a publicly accessible image URL and `BASE_URL` must
+be publicly reachable so D-ID can download the generated audio.
 
 Avoid `PORT=6000` in browsers. Many browsers block it as an unsafe port. Use `6001`, `5000`, or another allowed port.
 
@@ -201,6 +220,12 @@ GET /health
 
 ```bash
 curl http://localhost:6001/health
+```
+
+Readiness check (MySQL, Redis, FFmpeg, and provider configuration):
+
+```http
+GET /health/ready
 ```
 
 ### Create Video Job

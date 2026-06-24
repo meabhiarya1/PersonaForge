@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { query } from '../../config/db.js';
+import { pool, query } from '../../config/db.js';
 import {
   VIDEO_PROJECT_COLUMNS,
   VIDEO_PROJECT_TABLE
@@ -224,6 +224,23 @@ export const getVideoJobByQueueJobId = async (queueJobId) => {
   return videoJob;
 };
 
+export const getLatestVideoJobByProjectId = async (projectId) => {
+  const rows = await query(
+    `SELECT * FROM ${VIDEO_JOB_TABLE}
+     WHERE ${VIDEO_JOB_COLUMNS.PROJECT_ID} = :projectId
+     ORDER BY ${VIDEO_JOB_COLUMNS.CREATED_AT} DESC
+     LIMIT 1`,
+    { projectId }
+  );
+  const videoJob = mapJobRow(rows[0]);
+
+  if (!videoJob) {
+    throw new AppError('Video job not found', 404);
+  }
+
+  return videoJob;
+};
+
 export const updateVideoProject = async (projectId, data) => {
   const { assignments, params } = buildUpdate(data, projectColumnMap, normalizeProjectValue);
 
@@ -266,16 +283,51 @@ export const updateProjectAndJobStatus = async ({
   projectData = {},
   jobData = {}
 }) => {
-  const [project, videoJob] = await Promise.all([
-    updateVideoProject(projectId, {
+  const projectUpdate = buildUpdate(
+    {
       ...projectData,
       status
-    }),
-    updateVideoJob(jobId, {
+    },
+    projectColumnMap,
+    normalizeProjectValue
+  );
+  const jobUpdate = buildUpdate(
+    {
       ...jobData,
       status,
       currentStep
-    })
+    },
+    jobColumnMap,
+    normalizeJobValue
+  );
+
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+    await connection.execute(
+      `UPDATE ${VIDEO_PROJECT_TABLE}
+       SET ${projectUpdate.assignments.join(', ')}
+       WHERE ${VIDEO_PROJECT_COLUMNS.ID} = :projectId`,
+      { ...projectUpdate.params, projectId }
+    );
+    await connection.execute(
+      `UPDATE ${VIDEO_JOB_TABLE}
+       SET ${jobUpdate.assignments.join(', ')}
+       WHERE ${VIDEO_JOB_COLUMNS.ID} = :jobId`,
+      { ...jobUpdate.params, jobId }
+    );
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+
+  const [project, videoJob] = await Promise.all([
+    getVideoProjectById(projectId),
+    getVideoJobById(jobId)
   ]);
 
   return { project, job: videoJob };

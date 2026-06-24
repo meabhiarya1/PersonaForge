@@ -6,6 +6,12 @@ export const retry = async (fn, retries = 3, delayMs = 1000) => {
       return await fn();
     } catch (error) {
       lastError = error;
+      const status = error.response?.status;
+      const retryable =
+        !status || status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+
+      if (!retryable) throw error;
+
       if (attempt < retries) {
         await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
       }

@@ -9,6 +9,8 @@ import AppError from './utils/AppError.js';
 import videoRoutes from './routes/video.routes.js';
 import jobRoutes from './routes/job.routes.js';
 import { bullBoardRouter } from './config/bullBoard.js';
+import { getReadiness } from './services/health/health.service.js';
+import asyncHandler from './utils/asyncHandler.js';
 
 const app = express();
 
@@ -32,6 +34,18 @@ app.use('/admin/queues', bullBoardRouter);
 app.get('/health', (req, res) => {
   res.json({ success: true, message: 'OK' });
 });
+
+app.get(
+  '/health/ready',
+  asyncHandler(async (req, res) => {
+    const readiness = await getReadiness();
+    res.status(readiness.ready ? 200 : 503).json({
+      success: readiness.ready,
+      message: readiness.ready ? 'Ready' : 'Dependencies are not ready',
+      data: readiness
+    });
+  })
+);
 
 app.use((req, res, next) => {
   next(new AppError('Route not found', 404));

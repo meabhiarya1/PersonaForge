@@ -24,7 +24,10 @@ const fallbackScript = (input) => ({
 
 export const generateScriptWithOpenAI = async (input) => {
   if (!env.openaiApiKey) {
-    return fallbackScript(input);
+    if (env.allowMockProviders) return fallbackScript(input);
+    throw new Error(
+      'OPENAI_API_KEY is required. Set ALLOW_MOCK_PROVIDERS=true only for local pipeline testing.'
+    );
   }
 
   const systemPrompt = [

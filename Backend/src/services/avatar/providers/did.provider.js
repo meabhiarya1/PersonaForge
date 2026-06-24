@@ -1,10 +1,39 @@
 import axios from 'axios';
 import env from '../../../config/env.js';
+import logger from '../../../config/logger.js';
 import { retry } from '../../../utils/retry.js';
+
+const getAuthorizationHeader = () => {
+  const credential = env.didApiKey.trim().replace(/^Basic\s+/i, '');
+  const encodedCredential = credential.includes(':')
+    ? Buffer.from(credential, 'utf8').toString('base64')
+    : credential;
+
+  return `Basic ${encodedCredential}`;
+};
+
+export const getDIDTalk = async (talkId) => {
+  const response = await retry(() =>
+    axios.get(`https://api.d-id.com/talks/${talkId}`, {
+      headers: { Authorization: getAuthorizationHeader() }
+    })
+  );
+
+  return response.data;
+};
 
 export const generateAvatarWithDID = async ({ audioUrl, avatarId }) => {
   if (!env.didApiKey) {
-    return null;
+    if (env.allowMockProviders) return null;
+    throw new Error(
+      'DID_API_KEY is required. Set ALLOW_MOCK_PROVIDERS=true only for local pipeline testing.'
+    );
+  }
+
+  try {
+    new URL(avatarId);
+  } catch {
+    throw new Error('avatarId must be a publicly accessible image URL when using D-ID.');
   }
 
   const createResponse = await retry(() =>
@@ -19,7 +48,7 @@ export const generateAvatarWithDID = async ({ audioUrl, avatarId }) => {
       },
       {
         headers: {
-          Authorization: `Basic ${env.didApiKey}`,
+          Authorization: getAuthorizationHeader(),
           'Content-Type': 'application/json'
         }
       }
@@ -27,22 +56,32 @@ export const generateAvatarWithDID = async ({ audioUrl, avatarId }) => {
   );
 
   const talkId = createResponse.data.id;
+  const deadline = Date.now() + env.didTimeoutMs;
+  let lastStatus = 'created';
 
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    const statusResponse = await axios.get(`https://api.d-id.com/talks/${talkId}`, {
-      headers: { Authorization: `Basic ${env.didApiKey}` }
-    });
+  logger.info('DID_TALK_CREATED', { talkId });
 
-    if (statusResponse.data.status === 'done') {
-      return statusResponse.data.result_url;
+  while (Date.now() < deadline) {
+    const talk = await getDIDTalk(talkId);
+    const nextStatus = talk.status;
+    if (nextStatus !== lastStatus) {
+      lastStatus = nextStatus;
+      logger.info('DID_TALK_STATUS_CHANGED', { talkId, status: nextStatus });
     }
 
-    if (statusResponse.data.status === 'error') {
-      throw new Error(statusResponse.data.error?.description || 'D-ID avatar generation failed');
+    if (nextStatus === 'done') {
+      return talk.result_url;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    if (nextStatus === 'error' || nextStatus === 'rejected') {
+      throw new Error(talk.error?.description || 'D-ID avatar generation failed');
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, env.didPollIntervalMs));
   }
 
-  throw new Error('D-ID avatar generation timed out');
+  throw new Error(
+    `D-ID avatar generation timed out after ${Math.round(env.didTimeoutMs / 1000)} seconds ` +
+      `(talkId: ${talkId}, last status: ${lastStatus})`
+  );
 };

@@ -2,6 +2,7 @@ import path from 'path';
 import ffmpeg from '../../config/ffmpeg.js';
 import { storageConfig } from '../../config/storage.js';
 import { createFileName, ensureDir } from '../../utils/file.js';
+import { assertFfmpegFilter } from '../../utils/media.js';
 
 const escapeSubtitlePath = (captionPath) => {
   return captionPath.replaceAll('\\', '\\\\').replaceAll(':', '\\:').replaceAll("'", "\\'");
@@ -14,6 +15,7 @@ export const createFinalOutputPath = async () => {
 
 export const renderFinalVideo = async ({ avatarVideoPath, captionPath, outputPath }) => {
   await ensureDir(path.dirname(outputPath));
+  await assertFfmpegFilter('subtitles');
 
   await new Promise((resolve, reject) => {
     ffmpeg(avatarVideoPath)
