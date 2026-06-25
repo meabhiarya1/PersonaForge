@@ -107,7 +107,7 @@ Goal:
 
 Make the MVP reliable and reusable before adding bigger AI/ML features.
 
-Status: in progress.
+Status: completed.
 
 Completed:
 
@@ -129,13 +129,28 @@ Completed:
 - Clearer empty and failed project states
 - Generated media/debug links in the output panel
 - Video Library page for completed videos with large preview and created date/time
+- Stale browser tracking cleanup after generated DB reset
 - Learning docs for Phase 1 and Phase 2 webhook flow
 
-Remaining:
+End-to-end tested:
 
-- Final Phase v2 testing checklist
-- Optional controlled retry endpoint for failed generations
-- Optional temp/intermediate media cleanup after permanent storage decision
+- Create video from the UI
+- Track project/job status in the Projects page
+- OpenAI script generation
+- ElevenLabs voice generation
+- D-ID avatar/lip-sync generation through webhook/fallback flow
+- FFmpeg captions/final MP4 rendering
+- Final output preview and generated asset links
+- Copy Project ID and Job ID
+- Manual project/job lookup
+- Completed video browsing in the Video Library
+- Clean reset of generated DB rows and local temp media
+
+Deferred from Phase v2:
+
+- Controlled retry endpoint for failed generations
+- Permanent cloud storage before aggressive final-video cleanup
+- Temp/intermediate media cleanup policy after storage is finalized
 
 Creator Style Profile MVP fields:
 
