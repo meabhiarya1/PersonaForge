@@ -1,4 +1,5 @@
-import { ExternalLink, FileText, Film, Music, Subtitles } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ExternalLink, FileText, Film, Loader2, Music, Subtitles } from 'lucide-react';
 import StatusBadge from './StatusBadge.jsx';
 
 const AssetLink = ({ label, href, icon: Icon }) => {
@@ -25,6 +26,16 @@ const AssetLink = ({ label, href, icon: Icon }) => {
 };
 
 const OutputPanel = ({ project }) => {
+  const [videoState, setVideoState] = useState('idle');
+
+  useEffect(() => {
+    if (project?.finalVideoUrl) {
+      setVideoState('loading');
+    } else {
+      setVideoState('idle');
+    }
+  }, [project?.finalVideoUrl]);
+
   return (
     <div className="rounded-lg border border-line bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -44,7 +55,44 @@ const OutputPanel = ({ project }) => {
 
       {project?.finalVideoUrl ? (
         <div className="mt-5 overflow-hidden rounded-lg border border-line bg-black">
-          <video src={project.finalVideoUrl} controls className="aspect-video w-full" />
+          <div className="relative aspect-video">
+            {videoState === 'loading' ? (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80 text-white">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Loading final video...
+                </div>
+              </div>
+            ) : null}
+
+            {videoState === 'error' ? (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/85 px-6 text-center text-white">
+                <div>
+                  <p className="text-sm font-semibold">Video preview could not load.</p>
+                  <a
+                    href={project.finalVideoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-ink"
+                  >
+                    Open MP4 directly
+                    <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                  </a>
+                </div>
+              </div>
+            ) : null}
+
+            <video
+              key={project.finalVideoUrl}
+              src={project.finalVideoUrl}
+              controls
+              preload="metadata"
+              className="h-full w-full"
+              onLoadedData={() => setVideoState('ready')}
+              onCanPlay={() => setVideoState('ready')}
+              onError={() => setVideoState('error')}
+            />
+          </div>
         </div>
       ) : null}
 

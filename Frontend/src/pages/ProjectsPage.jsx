@@ -7,6 +7,7 @@ import PipelineTimeline from '../components/PipelineTimeline.jsx';
 import ProjectLookup from '../components/ProjectLookup.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { useVideoJob } from '../hooks/useVideoJob.js';
+import { readLatestVideoJob, saveLatestVideoJob } from '../utils/storage.js';
 
 const ProjectsPage = () => {
   const [searchParams] = useSearchParams();
@@ -26,14 +27,46 @@ const ProjectsPage = () => {
     setJobId
   } = useVideoJob();
 
+  const hasTrackingTarget = Boolean(projectId || jobId || project);
+
+  const handleFetchProject = async (nextProjectId = projectId) => {
+    const normalizedProjectId = nextProjectId.trim();
+    if (!normalizedProjectId) return null;
+
+    saveLatestVideoJob({
+      projectId: normalizedProjectId,
+      jobId,
+      queueJobId
+    });
+
+    return fetchProject(normalizedProjectId);
+  };
+
+  const handleTrackJob = (nextJobId = jobId) => {
+    const normalizedJobId = nextJobId.trim();
+    if (!normalizedJobId) return;
+
+    saveLatestVideoJob({
+      projectId,
+      jobId: normalizedJobId,
+      queueJobId
+    });
+
+    trackExistingJob(normalizedJobId);
+  };
+
   useEffect(() => {
     if (didLoadFromUrl.current) return;
 
-    const nextProjectId = searchParams.get('projectId') || '';
-    const nextJobId = searchParams.get('jobId') || '';
-    const nextQueueJobId = searchParams.get('queueJobId') || '';
+    const savedJob = readLatestVideoJob();
+    const nextProjectId = searchParams.get('projectId') || savedJob.projectId || '';
+    const nextJobId = searchParams.get('jobId') || savedJob.jobId || '';
+    const nextQueueJobId = searchParams.get('queueJobId') || savedJob.queueJobId || '';
 
-    if (!nextProjectId && !nextJobId) return;
+    if (!nextProjectId && !nextJobId) {
+      didLoadFromUrl.current = true;
+      return;
+    }
 
     didLoadFromUrl.current = true;
 
@@ -64,8 +97,8 @@ const ProjectsPage = () => {
         jobId={jobId}
         onProjectIdChange={setProjectId}
         onJobIdChange={setJobId}
-        onFetchProject={fetchProject}
-        onTrackJob={trackExistingJob}
+        onFetchProject={handleFetchProject}
+        onTrackJob={handleTrackJob}
       />
 
       <div className="rounded-lg border border-line bg-white p-5 shadow-soft">
@@ -88,8 +121,19 @@ const ProjectsPage = () => {
         </div>
       </div>
 
-      <PipelineTimeline status={status === 'idle' ? 'queued' : status} />
-      <OutputPanel project={project} />
+      {hasTrackingTarget ? (
+        <>
+          <PipelineTimeline status={status} />
+          <OutputPanel project={project} />
+        </>
+      ) : (
+        <div className="rounded-lg border border-dashed border-line bg-white p-6 text-center shadow-sm">
+          <h2 className="text-base font-semibold text-ink">No project selected yet</h2>
+          <p className="mt-2 text-sm text-steel">
+            Start a generation from Create Video, or paste an existing Project ID / Job ID above to track it here.
+          </p>
+        </div>
+      )}
 
       {isFetchingProject ? (
         <p className="rounded-lg border border-line bg-white px-4 py-3 text-sm text-steel shadow-sm">

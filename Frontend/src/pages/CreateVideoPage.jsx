@@ -1,10 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import GenerationForm from '../components/GenerationForm.jsx';
+import { saveLatestVideoJob } from '../utils/storage.js';
 
 const CreateVideoPage = () => {
   const navigate = useNavigate();
 
   const handleCreated = ({ projectId, jobId, queueJobId }) => {
+    saveLatestVideoJob({ projectId, jobId, queueJobId });
+
     const params = new URLSearchParams({
       projectId,
       jobId

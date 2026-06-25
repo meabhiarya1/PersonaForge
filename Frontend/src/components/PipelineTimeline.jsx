@@ -4,6 +4,7 @@ import { pipelineSteps, statusLabels } from '../utils/status.js';
 const PipelineTimeline = ({ status = 'queued' }) => {
   const activeIndex = Math.max(0, pipelineSteps.indexOf(status));
   const failed = status === 'failed';
+  const completed = status === 'completed';
 
   return (
     <div className="rounded-lg border border-line bg-white p-5 shadow-sm">
@@ -16,8 +17,8 @@ const PipelineTimeline = ({ status = 'queued' }) => {
 
       <div className="grid gap-3 md:grid-cols-4">
         {pipelineSteps.map((step, index) => {
-          const complete = !failed && index < activeIndex;
-          const active = !failed && index === activeIndex;
+          const complete = completed || (!failed && index < activeIndex);
+          const active = !completed && !failed && index === activeIndex;
 
           return (
             <div

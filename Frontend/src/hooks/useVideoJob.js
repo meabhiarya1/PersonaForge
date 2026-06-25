@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { getJobStatus, getVideoProject } from '../api/videoApi.js';
 import { terminalStatuses } from '../utils/status.js';
@@ -15,16 +15,16 @@ export const useVideoJob = () => {
   const status = job?.status || project?.status || 'idle';
   const isTerminal = useMemo(() => terminalStatuses.has(status), [status]);
 
-  const startTracking = ({ projectId: nextProjectId, jobId: nextJobId, queueJobId: nextQueueJobId }) => {
+  const startTracking = useCallback(({ projectId: nextProjectId, jobId: nextJobId, queueJobId: nextQueueJobId }) => {
     setProjectId(nextProjectId);
     setJobId(nextJobId);
     setQueueJobId(nextQueueJobId || '');
     setJob(null);
     setProject(null);
     setIsPolling(Boolean(nextJobId));
-  };
+  }, []);
 
-  const trackExistingJob = (nextJobId = jobId) => {
+  const trackExistingJob = useCallback((nextJobId = jobId) => {
     const normalizedJobId = nextJobId.trim();
     if (!normalizedJobId) return;
 
@@ -33,9 +33,9 @@ export const useVideoJob = () => {
     setProject(null);
     setQueueJobId('');
     setIsPolling(true);
-  };
+  }, [jobId]);
 
-  const fetchProject = async (id = projectId) => {
+  const fetchProject = useCallback(async (id = projectId) => {
     if (!id) return null;
 
     setIsFetchingProject(true);
@@ -49,7 +49,7 @@ export const useVideoJob = () => {
     } finally {
       setIsFetchingProject(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     if (!jobId || !isPolling) return undefined;
