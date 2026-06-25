@@ -19,3 +19,23 @@ export const healthCheck = async () => {
   const { data } = await axiosInstance.get('/health');
   return data;
 };
+
+export const listProfiles = async () => {
+  const { data } = await axiosInstance.get('/api/profiles');
+  return data.data;
+};
+
+export const createProfile = async (payload) => {
+  const { data } = await axiosInstance.post('/api/profiles', payload);
+  return data.data;
+};
+
+export const updateProfile = async (profileId, payload) => {
+  const { data } = await axiosInstance.patch(`/api/profiles/${profileId}`, payload);
+  return data.data;
+};
+
+export const deleteProfile = async (profileId) => {
+  const { data } = await axiosInstance.delete(`/api/profiles/${profileId}`);
+  return data.data;
+};

@@ -4,6 +4,7 @@ import logger from './logger.js';
 import { CREATE_VIDEO_PROJECT_TABLE_SQL } from '../models/VideoProject.model.js';
 import { CREATE_VIDEO_JOB_TABLE_SQL } from '../models/VideoJob.model.js';
 import { CREATE_VIDEO_JOB_STEP_TABLE_SQL } from '../models/VideoJobStep.model.js';
+import { CREATE_CREATOR_PROFILE_TABLE_SQL } from '../models/CreatorProfile.model.js';
 import { JOB_STATUS } from '../constants/jobStatus.js';
 
 export const pool = mysql.createPool({
@@ -124,6 +125,7 @@ const syncPhase2Schema = async () => {
   }
 
   await pool.query(CREATE_VIDEO_JOB_STEP_TABLE_SQL);
+  await pool.query(CREATE_CREATOR_PROFILE_TABLE_SQL);
 };
 
 export const initializeDatabase = async () => {

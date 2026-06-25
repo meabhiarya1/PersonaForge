@@ -9,6 +9,7 @@ import AppError from './utils/AppError.js';
 import videoRoutes from './routes/video.routes.js';
 import jobRoutes from './routes/job.routes.js';
 import webhookRoutes from './routes/webhook.routes.js';
+import profileRoutes from './routes/profile.routes.js';
 import { bullBoardRouter } from './config/bullBoard.js';
 import { getReadiness } from './services/health/health.service.js';
 import asyncHandler from './utils/asyncHandler.js';
@@ -28,6 +29,7 @@ app.use('/temp', express.static(path.resolve(storageConfig.tempRoot)));
 app.use('/api/videos', videoRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/profiles', profileRoutes);
 app.get('/admin', (req, res) => {
   res.redirect('/admin/queues/');
 });
