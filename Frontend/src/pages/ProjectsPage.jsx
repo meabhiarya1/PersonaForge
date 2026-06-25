@@ -124,7 +124,7 @@ const ProjectsPage = () => {
       {hasTrackingTarget ? (
         <>
           <PipelineTimeline status={status} />
-          <OutputPanel project={project} />
+          <OutputPanel project={project} jobId={jobId} />
         </>
       ) : (
         <div className="rounded-lg border border-dashed border-line bg-white p-6 text-center shadow-sm">

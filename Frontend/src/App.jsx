@@ -6,6 +6,7 @@ import AppLayout from './components/AppLayout.jsx';
 import CreateVideoPage from './pages/CreateVideoPage.jsx';
 import ProfilesPage from './pages/ProfilesPage.jsx';
 import ProjectsPage from './pages/ProjectsPage.jsx';
+import VideoLibraryPage from './pages/VideoLibraryPage.jsx';
 
 const App = () => {
   const [apiHealthy, setApiHealthy] = useState(false);
@@ -31,6 +32,7 @@ const App = () => {
         <Route index element={<CreateVideoPage />} />
         <Route path="profiles" element={<ProfilesPage />} />
         <Route path="projects" element={<ProjectsPage />} />
+        <Route path="library" element={<VideoLibraryPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

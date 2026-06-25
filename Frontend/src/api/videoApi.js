@@ -15,6 +15,16 @@ export const getVideoProject = async (projectId) => {
   return data.data;
 };
 
+export const listVideoProjects = async ({ status, limit } = {}) => {
+  const { data } = await axiosInstance.get('/api/videos', {
+    params: {
+      status,
+      limit
+    }
+  });
+  return data.data;
+};
+
 export const healthCheck = async () => {
   const { data } = await axiosInstance.get('/health');
   return data;

@@ -15,8 +15,10 @@ axiosInstance.interceptors.response.use(
       error.response?.data?.message ||
       error.message ||
       'Something went wrong while calling the API.';
+    const normalizedError = new Error(message);
+    normalizedError.status = error.response?.status;
 
-    return Promise.reject(new Error(message));
+    return Promise.reject(normalizedError);
   }
 );
 

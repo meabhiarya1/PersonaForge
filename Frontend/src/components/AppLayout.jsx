@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { FolderSearch, LayoutDashboard, UserRoundCog, WandSparkles } from 'lucide-react';
+import { FolderSearch, LayoutDashboard, Library, UserRoundCog, WandSparkles } from 'lucide-react';
 import TopBar from './TopBar.jsx';
 
 const navItems = [
@@ -20,6 +20,12 @@ const navItems = [
     label: 'Projects',
     description: 'Lookup and output',
     icon: FolderSearch
+  },
+  {
+    to: '/library',
+    label: 'Video Library',
+    description: 'Completed videos',
+    icon: Library
   }
 ];
 

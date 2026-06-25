@@ -6,6 +6,7 @@ import {
   createVideoProject,
   createVideoJob,
   getVideoProjectById,
+  listVideoProjects,
   markProjectFailed
 } from '../services/project/project.service.js';
 import { addVideoGenerationJob } from '../jobs/queues/video.queue.js';
@@ -49,4 +50,13 @@ export const generateVideo = asyncHandler(async (req, res) => {
 export const getVideoProject = asyncHandler(async (req, res) => {
   const project = await getVideoProjectById(req.params.projectId);
   sendSuccess(res, 'Video project fetched', project);
+});
+
+export const listVideos = asyncHandler(async (req, res) => {
+  const projects = await listVideoProjects({
+    status: req.query.status,
+    limit: req.query.limit
+  });
+
+  sendSuccess(res, 'Video projects fetched', projects);
 });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { getJobStatus, getVideoProject } from '../api/videoApi.js';
+import { clearLatestVideoJob } from '../utils/storage.js';
 import { terminalStatuses } from '../utils/status.js';
 
 export const useVideoJob = () => {
@@ -14,6 +15,16 @@ export const useVideoJob = () => {
 
   const status = job?.status || project?.status || 'idle';
   const isTerminal = useMemo(() => terminalStatuses.has(status), [status]);
+
+  const resetTracking = useCallback(() => {
+    setProjectId('');
+    setJobId('');
+    setQueueJobId('');
+    setJob(null);
+    setProject(null);
+    setIsPolling(false);
+    clearLatestVideoJob();
+  }, []);
 
   const startTracking = useCallback(({ projectId: nextProjectId, jobId: nextJobId, queueJobId: nextQueueJobId }) => {
     setProjectId(nextProjectId);
@@ -44,12 +55,18 @@ export const useVideoJob = () => {
       setProject(nextProject);
       return nextProject;
     } catch (error) {
+      if (error.status === 404) {
+        resetTracking();
+        toast.error('Saved project was not found, so tracking was cleared.');
+        return null;
+      }
+
       toast.error(error.message);
       return null;
     } finally {
       setIsFetchingProject(false);
     }
-  }, [projectId]);
+  }, [projectId, resetTracking]);
 
   useEffect(() => {
     if (!jobId || !isPolling) return undefined;
@@ -77,6 +94,12 @@ export const useVideoJob = () => {
         }
       } catch (error) {
         if (isMounted) {
+          if (error.status === 404) {
+            resetTracking();
+            toast.error('Saved job was not found, so tracking was cleared.');
+            return;
+          }
+
           setIsPolling(false);
           toast.error(error.message);
         }
@@ -90,7 +113,7 @@ export const useVideoJob = () => {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [jobId, isPolling]);
+  }, [jobId, isPolling, resetTracking]);
 
   return {
     projectId,
@@ -107,6 +130,7 @@ export const useVideoJob = () => {
     fetchProject,
     setProjectId,
     setJobId,
-    setQueueJobId
+    setQueueJobId,
+    resetTracking
   };
 };

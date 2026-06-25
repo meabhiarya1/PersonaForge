@@ -125,12 +125,17 @@ Completed:
 - Profile selector in generation UI
 - Apply profile defaults to generation form
 - React Router page separation with left sidebar navigation
+- Project output polish with copyable Project ID / Job ID
+- Clearer empty and failed project states
+- Generated media/debug links in the output panel
+- Video Library page for completed videos with large preview and created date/time
 - Learning docs for Phase 1 and Phase 2 webhook flow
 
 Remaining:
 
 - Final Phase v2 testing checklist
-- Optional small UI polish around job status
+- Optional controlled retry endpoint for failed generations
+- Optional temp/intermediate media cleanup after permanent storage decision
 
 Creator Style Profile MVP fields:
 

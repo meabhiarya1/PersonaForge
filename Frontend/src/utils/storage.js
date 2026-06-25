@@ -22,3 +22,9 @@ export const readLatestVideoJob = () => {
     return {};
   }
 };
+
+export const clearLatestVideoJob = () => {
+  if (typeof window === 'undefined') return;
+
+  window.sessionStorage.removeItem(latestVideoJobStorageKey);
+};
