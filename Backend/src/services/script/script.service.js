@@ -4,6 +4,7 @@ import {
   estimateDurationFromWords,
   getDurationWordBudget
 } from '../../utils/scriptDuration.js';
+import { buildScriptQualityMeta, normalizeScenes } from '../../utils/scriptQuality.js';
 
 const expandShortScript = ({ script, input, analysisData, minWords }) => {
   const expansionBlocks = [
@@ -42,18 +43,33 @@ const normalizeScriptForDuration = ({ scriptData, input, analysisData }) => {
     wordCount = countWords(script);
   }
 
+  const normalizedScenes = normalizeScenes({
+    scenes: scriptData.scenes,
+    script,
+    duration: input.duration,
+    topic: input.topic
+  });
+  const durationMeta = {
+    requestedDuration: wordBudget.duration,
+    targetWords: wordBudget.targetWords,
+    minWords: wordBudget.minWords,
+    maxWords: wordBudget.maxWords,
+    actualWords: wordCount,
+    estimatedDuration: estimateDurationFromWords(wordCount),
+    withinTargetRange: wordCount >= wordBudget.minWords && wordCount <= wordBudget.maxWords
+  };
+
   return {
     ...scriptData,
     script,
-    durationMeta: {
-      requestedDuration: wordBudget.duration,
-      targetWords: wordBudget.targetWords,
-      minWords: wordBudget.minWords,
-      maxWords: wordBudget.maxWords,
-      actualWords: wordCount,
-      estimatedDuration: estimateDurationFromWords(wordCount),
-      withinTargetRange: wordCount >= wordBudget.minWords && wordCount <= wordBudget.maxWords
-    }
+    scenes: normalizedScenes,
+    durationMeta,
+    qualityMeta: buildScriptQualityMeta({
+      script,
+      scenes: normalizedScenes,
+      input,
+      durationMeta
+    })
   };
 };
 
@@ -68,7 +84,8 @@ export const generateScript = async (input, analysisData = null) => {
       title: scriptData.title || input.topic,
       hook: scriptData.hook || '',
       script: scriptData.script || '',
-      scenes: Array.isArray(scriptData.scenes) ? scriptData.scenes : []
+      scenes: Array.isArray(scriptData.scenes) ? scriptData.scenes : [],
+      qualityNotes: scriptData.qualityNotes || ''
     },
     input,
     analysisData

@@ -301,6 +301,48 @@ const OutputPanel = ({ project, jobId }) => {
                 </span>
               </div>
             ) : null}
+            {project.scriptData.qualityMeta ? (
+              <div className="rounded-lg border border-line bg-white p-3">
+                <div className="grid gap-2 text-xs text-steel sm:grid-cols-2 lg:grid-cols-4">
+                  <span>
+                    Scenes:{' '}
+                    <strong className="text-ink">
+                      {project.scriptData.qualityMeta.sceneCount}/{project.scriptData.qualityMeta.targetSceneCount}
+                    </strong>
+                  </span>
+                  <span>
+                    Language: <strong className="text-ink">{project.scriptData.qualityMeta.language}</strong>
+                  </span>
+                  <span>
+                    Style: <strong className="text-ink">{project.scriptData.qualityMeta.style}</strong>
+                  </span>
+                  <span>
+                    Audience: <strong className="text-ink">{project.scriptData.qualityMeta.targetAudience}</strong>
+                  </span>
+                </div>
+                {project.scriptData.qualityMeta.structure ? (
+                  <p className="mt-2 text-xs leading-5 text-steel">
+                    Structure: <strong className="text-ink">{project.scriptData.qualityMeta.structure}</strong>
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {(project.scriptData.scenes || []).length ? (
+              <div className="rounded-lg border border-line bg-white p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-steel">Generated Scene Plan</p>
+                <ol className="mt-2 space-y-2 text-sm leading-6 text-ink">
+                  {project.scriptData.scenes.map((scene) => (
+                    <li key={`${scene.sceneNumber}-${scene.purpose}-${scene.text}`}>
+                      <span className="font-semibold">
+                        Scene {scene.sceneNumber}
+                        {scene.purpose ? ` · ${scene.purpose}` : ''}
+                      </span>
+                      <p className="text-steel">{scene.text}</p>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : null}
             <p className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-white p-3 text-sm leading-6 text-steel ring-1 ring-line">
               {project.scriptData.script}
             </p>

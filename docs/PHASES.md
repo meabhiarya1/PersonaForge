@@ -371,6 +371,8 @@ Goal:
 
 Script generation should use analyzed structure instead of raw notes only.
 
+Status: implemented, ready for end-to-end review.
+
 Build:
 
 - Update script prompt to use analysis data
@@ -378,6 +380,9 @@ Build:
 - Add duration-aware scene planning
 - Enforce script word budget based on requested duration
 - Show duration metadata in Project Output
+- Add scene purpose normalization
+- Add script quality metadata
+- Show generated scene plan in Project Output
 - Improve Hinglish/Hindi/English behavior
 - Add platform-aware script style later if needed
 

@@ -2,6 +2,7 @@ import axios from 'axios';
 import env from '../../../config/env.js';
 import { retry } from '../../../utils/retry.js';
 import { getDurationWordBudget } from '../../../utils/scriptDuration.js';
+import { getTargetSceneCount } from '../../../utils/scriptQuality.js';
 
 const fallbackScript = (input) => ({
   title: input.topic,
@@ -14,12 +15,14 @@ const fallbackScript = (input) => ({
   scenes: [
     {
       sceneNumber: 1,
+      purpose: 'hook',
       text: `Today we will explain ${input.topic}.`,
       visualInstruction: 'Presenter faces camera with a clean educational background.',
       caption: `Today we will explain ${input.topic}.`
     },
     {
       sceneNumber: 2,
+      purpose: 'explain',
       text: input.analysisData?.keyPoints?.join(' ') || input.notes || `Break down ${input.topic} with a simple example.`,
       visualInstruction: 'Show simple visual examples beside the avatar.',
       caption: input.analysisData?.mainIdea || input.notes || `Break down ${input.topic} with a simple example.`
@@ -29,6 +32,7 @@ const fallbackScript = (input) => ({
 
 export const generateScriptWithOpenAI = async (input) => {
   const wordBudget = getDurationWordBudget(input.duration);
+  const targetSceneCount = getTargetSceneCount(input.duration);
 
   if (!env.openaiApiKey) {
     if (env.allowMockProviders) return fallbackScript(input);
@@ -39,12 +43,17 @@ export const generateScriptWithOpenAI = async (input) => {
 
   const systemPrompt = [
     'You are an expert short-form educational video writer.',
-    'Return only valid JSON with title, hook, script, and scenes.',
-    'Each scene must have sceneNumber, text, visualInstruction, and caption.',
+    'Return only valid JSON with title, hook, script, scenes, and qualityNotes.',
+    'Each scene must have sceneNumber, purpose, text, visualInstruction, and caption.',
+    'Use this narrative structure: hook -> context -> explanation -> example -> takeaway.',
+    `Create about ${targetSceneCount} scenes unless the content requires a small adjustment.`,
+    'Each scene purpose must be one of hook, context, explain, example, takeaway, transition, warning, recap.',
     'The script length must closely match the requested duration.',
     `Write around ${wordBudget.targetWords} spoken words, with an acceptable range of ${wordBudget.minWords}-${wordBudget.maxWords} words.`,
     'Do not write a very short summary when the requested duration is longer.',
-    'Scene text should collectively cover the full script.'
+    'Scene text should collectively cover the full script.',
+    'Strictly follow the requested language. If language is Hinglish, use natural Hindi-English mix. If Hindi, use Hindi. If English, use English.',
+    'Use the contentAnalysis and alignmentData to avoid drifting away from the confirmed user intent.'
   ].join(' ');
 
   const userPrompt = {
@@ -56,6 +65,7 @@ export const generateScriptWithOpenAI = async (input) => {
     language: input.language,
     duration: input.duration,
     wordBudget,
+    targetSceneCount,
     targetAudience: input.targetAudience,
     style: input.style
   };
