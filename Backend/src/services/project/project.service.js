@@ -192,6 +192,27 @@ export const getVideoProjectById = async (projectId) => {
   return project;
 };
 
+export const listVideoProjects = async ({ status, limit = 24 } = {}) => {
+  const normalizedLimit = Math.min(Math.max(Number(limit) || 24, 1), 100);
+  const filters = [];
+  const params = {};
+
+  if (status) {
+    filters.push(`${VIDEO_PROJECT_COLUMNS.STATUS} = :status`);
+    params.status = status;
+  }
+
+  const rows = await query(
+    `SELECT * FROM ${VIDEO_PROJECT_TABLE}
+     ${filters.length ? `WHERE ${filters.join(' AND ')}` : ''}
+     ORDER BY ${VIDEO_PROJECT_COLUMNS.CREATED_AT} DESC
+     LIMIT ${normalizedLimit}`,
+    params
+  );
+
+  return rows.map(mapProjectRow);
+};
+
 export const getVideoJobById = async (jobId) => {
   const rows = await query(
     `SELECT * FROM ${VIDEO_JOB_TABLE}

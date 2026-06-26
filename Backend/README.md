@@ -163,12 +163,20 @@ ELEVENLABS_VOICE_ID=
 DID_API_KEY=
 DID_POLL_INTERVAL_MS=5000
 DID_TIMEOUT_MS=600000
+DID_FALLBACK_INTERVAL_MS=60000
 
 BASE_URL=http://localhost:6001
 ALLOW_MOCK_PROVIDERS=false
 FFMPEG_PATH=ffmpeg
 FFPROBE_PATH=ffprobe
 ```
+
+### D-ID webhook
+
+PersonaForge automatically sends `${BASE_URL}/api/webhooks/did` in each D-ID Create Talk
+request. D-ID calls this endpoint when processing changes state. The endpoint verifies the
+Talk through D-ID's authenticated API and queues a continuation job. A delayed BullMQ status
+check remains as fallback if webhook delivery is missed.
 
 Set `ALLOW_MOCK_PROVIDERS=true` only for local infrastructure tests. Mock mode creates
 valid silent audio and a timed placeholder avatar video, so the queue, captions, and

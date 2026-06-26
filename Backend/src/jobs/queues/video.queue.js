@@ -24,3 +24,23 @@ export const addVideoGenerationJob = async ({ projectId, input, queueJobId }) =>
 
   return queueJobId;
 };
+
+export const addVideoContinuationJob = async ({ projectId, jobId, talkId }) => {
+  const queueJobId = `continue-did-${talkId}`;
+  await videoQueue.add(
+    'continue-video',
+    { projectId, jobId, talkId },
+    { jobId: queueJobId }
+  );
+  return queueJobId;
+};
+
+export const addDIDStatusCheckJob = async ({ projectId, jobId, talkId, attempt = 1, delay }) => {
+  const queueJobId = `check-did-${talkId}-${attempt}`;
+  await videoQueue.add(
+    'check-did-status',
+    { projectId, jobId, talkId, attempt },
+    { jobId: queueJobId, delay }
+  );
+  return queueJobId;
+};

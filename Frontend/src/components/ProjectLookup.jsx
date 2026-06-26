@@ -31,12 +31,14 @@ const ProjectLookup = ({
   };
 
   return (
-    <div className="rounded-lg border border-line bg-white p-5 shadow-sm">
-      <h2 className="text-base font-semibold text-ink">Lookup</h2>
-      <p className="mt-1 text-sm text-steel">Load a project or keep the latest generated IDs handy.</p>
+    <div className="rounded-lg border border-line bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-52 flex-1">
+          <h2 className="text-base font-semibold text-ink">Lookup</h2>
+          <p className="mt-1 text-sm text-steel">Load a project or track a job by ID.</p>
+        </div>
 
-      <div className="mt-4 grid gap-3">
-        <label className="grid gap-1.5">
+        <label className="grid min-w-72 flex-1 gap-1.5">
           <span className="text-sm font-semibold text-ink">Project ID</span>
           <div className="flex gap-2">
             <input
@@ -57,7 +59,7 @@ const ProjectLookup = ({
           </div>
         </label>
 
-        <label className="grid gap-1.5">
+        <label className="grid min-w-72 flex-1 gap-1.5">
           <span className="text-sm font-semibold text-ink">Job ID</span>
           <div className="flex gap-2">
             <input

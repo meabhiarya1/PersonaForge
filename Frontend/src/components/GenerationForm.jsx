@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Loader2, Play, WandSparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Loader2, Play, RefreshCw, UserRoundCog, WandSparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateVideo } from '../api/videoApi.js';
+import { generateVideo, listProfiles } from '../api/videoApi.js';
 
 const initialForm = {
   topic: 'Explain JavaScript closures',
@@ -10,21 +11,87 @@ const initialForm = {
   duration: 60,
   targetAudience: 'beginner developers',
   style: 'educational',
-  avatarId: 'default-avatar'
+  avatarId: 'default-avatar',
+  toneNotes: '',
+  commonPhrases: '',
+  teachingStyle: '',
+  hookStyle: ''
 };
 
 const inputClass =
   'w-full rounded-lg border border-line bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-teal focus:ring-4 focus:ring-teal/10';
 
+const secondaryButtonClass =
+  'inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:border-teal hover:text-teal disabled:cursor-not-allowed disabled:opacity-60';
+
+const buildGeneratePayload = (form) => ({
+  topic: form.topic,
+  notes: [
+    form.notes,
+    form.toneNotes ? `Tone preference: ${form.toneNotes}` : '',
+    form.commonPhrases ? `Common phrases to reuse naturally: ${form.commonPhrases}` : '',
+    form.teachingStyle ? `Teaching style: ${form.teachingStyle}` : '',
+    form.hookStyle ? `Hook style: ${form.hookStyle}` : ''
+  ]
+    .filter(Boolean)
+    .join('\n\n'),
+  language: form.language,
+  duration: Number(form.duration) || 60,
+  targetAudience: form.targetAudience,
+  style: form.style,
+  avatarId: form.avatarId
+});
+
+const applyProfileToForm = (profile, currentForm) => ({
+  ...currentForm,
+  language: profile.language || currentForm.language,
+  duration: profile.duration || currentForm.duration,
+  targetAudience: profile.targetAudience || currentForm.targetAudience,
+  style: profile.style || currentForm.style,
+  avatarId: profile.avatarId || currentForm.avatarId,
+  toneNotes: profile.toneNotes || '',
+  commonPhrases: profile.commonPhrases || '',
+  teachingStyle: profile.teachingStyle || '',
+  hookStyle: profile.hookStyle || ''
+});
+
 const GenerationForm = ({ onCreated }) => {
   const [form, setForm] = useState(initialForm);
+  const [profiles, setProfiles] = useState([]);
+  const [selectedProfileId, setSelectedProfileId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
 
   const updateField = (field, value) => {
     setForm((current) => ({
       ...current,
       [field]: value
     }));
+  };
+
+  const fetchProfiles = async () => {
+    setIsLoadingProfiles(true);
+    try {
+      setProfiles(await listProfiles());
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setIsLoadingProfiles(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
+
+  const handleProfileSelect = (profileId) => {
+    setSelectedProfileId(profileId);
+    const profile = profiles.find((item) => item.id === profileId);
+
+    if (!profile) return;
+
+    setForm((current) => applyProfileToForm(profile, current));
+    toast.success(`Applied profile: ${profile.name}`);
   };
 
   const handleSubmit = async (event) => {
@@ -37,11 +104,7 @@ const GenerationForm = ({ onCreated }) => {
 
     setIsSubmitting(true);
     try {
-      const payload = {
-        ...form,
-        duration: Number(form.duration) || 60
-      };
-      const created = await generateVideo(payload);
+      const created = await generateVideo(buildGeneratePayload(form));
       toast.success('Video generation job created.');
       onCreated(created);
     } catch (error) {
@@ -59,20 +122,74 @@ const GenerationForm = ({ onCreated }) => {
             <WandSparkles className="h-5 w-5 text-teal" aria-hidden="true" />
             <h2 className="text-lg font-semibold text-ink">Create Video</h2>
           </div>
-          <p className="mt-1 text-sm text-steel">Prompt, audience, style, and avatar configuration.</p>
+          <p className="mt-1 text-sm text-steel">
+            Generate from a prompt and optionally apply a saved style profile.
+          </p>
         </div>
       </div>
 
+      <section className="mt-5 rounded-lg border border-line bg-slate-50/70 p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-ink">Apply Creator Profile</h3>
+            <p className="text-xs text-steel">Manage profiles on the Profiles page.</p>
+          </div>
+          <Link to="/profiles" className={secondaryButtonClass}>
+            <UserRoundCog className="h-3.5 w-3.5" aria-hidden="true" />
+            Manage
+          </Link>
+        </div>
+
+        <div className="mt-3 grid gap-3">
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-steel">Saved profile</span>
+            <select
+              className={inputClass}
+              value={selectedProfileId}
+              onChange={(event) => handleProfileSelect(event.target.value)}
+            >
+              <option value="">Use manual settings</option>
+              {profiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            onClick={fetchProfiles}
+            disabled={isLoadingProfiles}
+            className={secondaryButtonClass}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoadingProfiles ? 'animate-spin' : ''}`} aria-hidden="true" />
+            Refresh Profiles
+          </button>
+        </div>
+      </section>
+
       <div className="mt-5 grid gap-4">
-        <label className="grid gap-1.5">
-          <span className="text-sm font-semibold text-ink">Topic</span>
-          <input
-            className={inputClass}
-            value={form.topic}
-            onChange={(event) => updateField('topic', event.target.value)}
-            placeholder="Explain JavaScript closures"
-          />
-        </label>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <label className="grid gap-1.5">
+            <span className="text-sm font-semibold text-ink">Topic</span>
+            <input
+              className={inputClass}
+              value={form.topic}
+              onChange={(event) => updateField('topic', event.target.value)}
+              placeholder="Explain JavaScript closures"
+            />
+          </label>
+
+          <label className="grid gap-1.5">
+            <span className="text-sm font-semibold text-ink">Avatar ID</span>
+            <input
+              className={inputClass}
+              value={form.avatarId}
+              onChange={(event) => updateField('avatarId', event.target.value)}
+            />
+          </label>
+        </div>
 
         <label className="grid gap-1.5">
           <span className="text-sm font-semibold text-ink">Notes</span>
@@ -84,7 +201,7 @@ const GenerationForm = ({ onCreated }) => {
           />
         </label>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <label className="grid gap-1.5">
             <span className="text-sm font-semibold text-ink">Language</span>
             <input
@@ -126,16 +243,17 @@ const GenerationForm = ({ onCreated }) => {
               <option value="explainer">Explainer</option>
               <option value="product-demo">Product demo</option>
               <option value="training">Training</option>
+              <option value="storytelling">Storytelling</option>
             </select>
           </label>
         </div>
 
         <label className="grid gap-1.5">
-          <span className="text-sm font-semibold text-ink">Avatar ID</span>
-          <input
-            className={inputClass}
-            value={form.avatarId}
-            onChange={(event) => updateField('avatarId', event.target.value)}
+          <span className="text-sm font-semibold text-ink">Tone Notes</span>
+          <textarea
+            className={`${inputClass} min-h-20 resize-y`}
+            value={form.toneNotes}
+            onChange={(event) => updateField('toneNotes', event.target.value)}
           />
         </label>
       </div>
@@ -145,7 +263,11 @@ const GenerationForm = ({ onCreated }) => {
         disabled={isSubmitting}
         className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Play className="h-4 w-4" aria-hidden="true" />}
+        {isSubmitting ? (
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <Play className="h-4 w-4" aria-hidden="true" />
+        )}
         Start Generation
       </button>
     </form>

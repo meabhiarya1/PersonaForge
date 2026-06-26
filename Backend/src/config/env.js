@@ -22,6 +22,7 @@ const env = {
   didApiKey: process.env.DID_API_KEY || '',
   didPollIntervalMs: Number(process.env.DID_POLL_INTERVAL_MS || 5000),
   didTimeoutMs: Number(process.env.DID_TIMEOUT_MS || 600000),
+  didFallbackIntervalMs: Number(process.env.DID_FALLBACK_INTERVAL_MS || 60000),
   baseUrl: process.env.BASE_URL || 'http://localhost:6001',
   allowMockProviders: toBoolean(process.env.ALLOW_MOCK_PROVIDERS, false),
   ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg',
