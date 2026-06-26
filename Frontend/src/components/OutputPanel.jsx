@@ -27,6 +27,18 @@ const AssetLink = ({ label, href, icon: Icon }) => {
   );
 };
 
+const formatJsonForCopy = (value) => {
+  if (!value) return '';
+  return JSON.stringify(value, null, 2);
+};
+
+const SectionCard = ({ title, children }) => (
+  <div className="rounded-lg bg-white p-3 ring-1 ring-line">
+    <p className="text-xs font-semibold uppercase tracking-wide text-steel">{title}</p>
+    <div className="mt-2">{children}</div>
+  </div>
+);
+
 const OutputPanel = ({ project, jobId }) => {
   const [videoState, setVideoState] = useState('idle');
 
@@ -63,38 +75,107 @@ const OutputPanel = ({ project, jobId }) => {
       </div>
 
       <div className="mt-5 rounded-lg border border-line bg-slate-50/70 p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-teal" aria-hidden="true" />
             <h3 className="text-sm font-semibold text-ink">Content Analysis</h3>
           </div>
-          {project?.inputType ? (
-            <span className="rounded-full border border-line bg-white px-2.5 py-1 text-xs font-semibold text-steel">
-              {project.inputType === 'reference_text' ? 'Reference text' : 'Simple prompt'}
-            </span>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <CopyButton value={formatJsonForCopy(project?.analysisData)} label="Copy Analysis" />
+            {project?.inputType ? (
+              <span className="rounded-full border border-line bg-white px-2.5 py-1 text-xs font-semibold text-steel">
+                {project.inputType === 'reference_text' ? 'Reference text' : 'Simple prompt'}
+              </span>
+            ) : null}
+          </div>
         </div>
+
+        {project?.inputType === 'reference_text' ? (
+          <div className="mb-3 rounded-lg border border-line bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-steel">Source Snapshot</p>
+              <CopyButton value={project?.referenceText} label="Copy Source" />
+            </div>
+            <p className="mt-2 max-h-24 overflow-auto whitespace-pre-wrap text-xs leading-5 text-steel">
+              {project?.referenceText || 'Reference text is not available.'}
+            </p>
+          </div>
+        ) : null}
 
         {project?.analysisData ? (
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div className="rounded-lg bg-white p-3 ring-1 ring-line">
-              <p className="text-xs font-semibold uppercase tracking-wide text-steel">Summary</p>
-              <p className="mt-2 text-sm leading-6 text-ink">{project.analysisData.summary}</p>
-            </div>
-            <div className="rounded-lg bg-white p-3 ring-1 ring-line">
-              <p className="text-xs font-semibold uppercase tracking-wide text-steel">Key Points</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-ink">
+            <SectionCard title="Summary">
+              <p className="text-sm leading-6 text-ink">{project.analysisData.summary || 'No summary returned.'}</p>
+            </SectionCard>
+
+            <SectionCard title="Key Points">
+              {(project.analysisData.keyPoints || []).length ? (
+                <ul className="list-disc space-y-1 pl-5 text-sm leading-6 text-ink">
                 {(project.analysisData.keyPoints || []).map((point) => (
                   <li key={point}>{point}</li>
                 ))}
               </ul>
-            </div>
-            {project.analysisData.suggestedAngle ? (
-              <div className="rounded-lg bg-white p-3 ring-1 ring-line lg:col-span-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-steel">Suggested Angle</p>
-                <p className="mt-2 text-sm leading-6 text-ink">{project.analysisData.suggestedAngle}</p>
+              ) : (
+                <p className="text-sm text-steel">No key points returned.</p>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Scene Ideas">
+              {(project.analysisData.sceneIdeas || []).length ? (
+                <ol className="space-y-2 text-sm leading-6 text-ink">
+                  {project.analysisData.sceneIdeas.map((scene, index) => (
+                    <li key={`${scene.scene || index}-${scene.message || scene.purpose}`}>
+                      <span className="font-semibold">
+                        {scene.scene ? `Scene ${scene.scene}` : `Scene ${index + 1}`}
+                        {scene.purpose ? ` · ${scene.purpose}` : ''}
+                      </span>
+                      {scene.message ? <p className="text-steel">{scene.message}</p> : null}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm text-steel">No scene ideas returned.</p>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Missing Context">
+              {(project.analysisData.missingContext || []).length ? (
+                <ul className="list-disc space-y-1 pl-5 text-sm leading-6 text-ink">
+                  {project.analysisData.missingContext.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-steel">No major missing context detected.</p>
+              )}
+            </SectionCard>
+
+            {(project.analysisData.contentWarnings || []).length ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 lg:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Content Warnings</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-amber-800">
+                  {project.analysisData.contentWarnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
               </div>
             ) : null}
+
+            {project.analysisData.suggestedAngle ? (
+              <SectionCard title="Suggested Angle">
+                <p className="text-sm leading-6 text-ink">{project.analysisData.suggestedAngle}</p>
+              </SectionCard>
+            ) : null}
+
+            {project.analysisData.mainIdea ? (
+              <SectionCard title="Main Idea">
+                <p className="text-sm leading-6 text-ink">{project.analysisData.mainIdea}</p>
+              </SectionCard>
+            ) : null}
+          </div>
+        ) : project?.inputType === 'reference_text' ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Reference Text mode was selected, but analysis is not available yet. It should appear after script generation starts.
           </div>
         ) : (
           <p className="text-sm text-steel">
@@ -107,11 +188,29 @@ const OutputPanel = ({ project, jobId }) => {
         <div className="mt-5 rounded-lg border border-line bg-white p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-ink">Input Alignment</h3>
-            <span className="rounded-full border border-line bg-mist px-2.5 py-1 text-xs font-semibold text-steel">
-              {Math.round((project.alignmentData.alignmentScore || 0) * 100)}% · {project.alignmentData.risk}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <CopyButton value={formatJsonForCopy(project.alignmentData)} label="Copy Alignment" />
+              <span className="rounded-full border border-line bg-mist px-2.5 py-1 text-xs font-semibold text-steel">
+                {Math.round((project.alignmentData.alignmentScore || 0) * 100)}% · {project.alignmentData.risk}
+              </span>
+            </div>
           </div>
-          <p className="text-sm leading-6 text-steel">{project.alignmentData.relationship}</p>
+          <div className="grid gap-3 md:grid-cols-3">
+            <SectionCard title="Intent">
+              <p className="text-sm font-semibold text-ink">{project.alignmentData.intent || 'Unknown'}</p>
+            </SectionCard>
+            <SectionCard title="Recommendation">
+              <p className="text-sm font-semibold text-ink">{project.alignmentData.recommendation || 'Unknown'}</p>
+            </SectionCard>
+            <SectionCard title="Topics Detected">
+              {(project.alignmentData.topicsDetected || []).length ? (
+                <p className="text-sm text-ink">{project.alignmentData.topicsDetected.join(', ')}</p>
+              ) : (
+                <p className="text-sm text-steel">No topics listed.</p>
+              )}
+            </SectionCard>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-steel">{project.alignmentData.relationship}</p>
           {project.userIntent ? (
             <p className="mt-3 rounded-lg border border-line bg-mist/50 px-3 py-2 text-sm text-ink">
               <span className="font-semibold">Confirmed intent:</span> {project.userIntent}
@@ -175,9 +274,12 @@ const OutputPanel = ({ project, jobId }) => {
       )}
 
       <div className="mt-5 rounded-lg border border-line bg-mist/40 p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <FileText className="h-4 w-4 text-teal" aria-hidden="true" />
-          <h3 className="text-sm font-semibold text-ink">Script</h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-teal" aria-hidden="true" />
+            <h3 className="text-sm font-semibold text-ink">Script</h3>
+          </div>
+          <CopyButton value={project?.scriptData?.script} label="Copy Script" />
         </div>
 
         {project?.scriptData ? (

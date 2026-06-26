@@ -311,6 +311,8 @@ Goal:
 
 Make the AI thinking process visible enough to debug bad scripts.
 
+Status: implemented, ready for end-to-end review.
+
 Build:
 
 - Content Analysis panel in Project Output
@@ -319,6 +321,10 @@ Build:
 - Show topic-reference alignment/conflict warnings
 - Add copy buttons for analysis/script
 - Add clear empty/error states for missing analysis
+- Show source/reference snapshot for debugging
+- Show missing context and content warnings
+- Show alignment intent, recommendation, detected topics, and confirmed user intent
+- Add copy buttons for source, analysis, alignment, and script
 
 Learning:
 
