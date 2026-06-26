@@ -1,7 +1,11 @@
 import { nanoid } from 'nanoid';
 import asyncHandler from '../utils/asyncHandler.js';
 import { sendSuccess } from '../utils/response.js';
-import { validateGenerateVideoInput } from '../validations/video.validation.js';
+import {
+  validateGenerateVideoInput,
+  validateInputIntentInput
+} from '../validations/video.validation.js';
+import { analyzeInputIntent } from '../services/content/contentAnalyzer.service.js';
 import {
   createVideoProject,
   createVideoJob,
@@ -45,6 +49,13 @@ export const generateVideo = asyncHandler(async (req, res) => {
     },
     202
   );
+});
+
+export const checkInputIntent = asyncHandler(async (req, res) => {
+  const input = validateInputIntentInput(req.body);
+  const alignment = await analyzeInputIntent(input);
+
+  sendSuccess(res, 'Input intent checked', alignment);
 });
 
 export const getVideoProject = asyncHandler(async (req, res) => {

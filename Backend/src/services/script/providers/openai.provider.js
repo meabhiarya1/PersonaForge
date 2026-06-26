@@ -1,6 +1,7 @@
 import axios from 'axios';
 import env from '../../../config/env.js';
 import { retry } from '../../../utils/retry.js';
+import { getDurationWordBudget } from '../../../utils/scriptDuration.js';
 
 const fallbackScript = (input) => ({
   title: input.topic,
@@ -27,6 +28,8 @@ const fallbackScript = (input) => ({
 });
 
 export const generateScriptWithOpenAI = async (input) => {
+  const wordBudget = getDurationWordBudget(input.duration);
+
   if (!env.openaiApiKey) {
     if (env.allowMockProviders) return fallbackScript(input);
     throw new Error(
@@ -37,15 +40,22 @@ export const generateScriptWithOpenAI = async (input) => {
   const systemPrompt = [
     'You are an expert short-form educational video writer.',
     'Return only valid JSON with title, hook, script, and scenes.',
-    'Each scene must have sceneNumber, text, visualInstruction, and caption.'
+    'Each scene must have sceneNumber, text, visualInstruction, and caption.',
+    'The script length must closely match the requested duration.',
+    `Write around ${wordBudget.targetWords} spoken words, with an acceptable range of ${wordBudget.minWords}-${wordBudget.maxWords} words.`,
+    'Do not write a very short summary when the requested duration is longer.',
+    'Scene text should collectively cover the full script.'
   ].join(' ');
 
   const userPrompt = {
     topic: input.topic,
     notes: input.notes,
+    userIntent: input.userIntent || '',
+    alignmentData: input.alignmentData || null,
     contentAnalysis: input.analysisData || null,
     language: input.language,
     duration: input.duration,
+    wordBudget,
     targetAudience: input.targetAudience,
     style: input.style
   };

@@ -134,7 +134,7 @@ const syncPhase3Schema = async () => {
      FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = ?
        AND TABLE_NAME = 'video_projects'
-       AND COLUMN_NAME IN ('input_type', 'reference_text', 'analysis_data')`,
+       AND COLUMN_NAME IN ('input_type', 'reference_text', 'user_intent', 'alignment_data', 'analysis_data')`,
     [env.dbName]
   );
 
@@ -161,9 +161,25 @@ const syncPhase3Schema = async () => {
     `);
   }
 
+  if (!existingColumns.has('user_intent')) {
+    await pool.query(`
+      ALTER TABLE video_projects
+        ADD COLUMN user_intent TEXT NULL AFTER reference_text
+    `);
+  }
+
+  if (!existingColumns.has('alignment_data')) {
+    await pool.query(`
+      ALTER TABLE video_projects
+        ADD COLUMN alignment_data JSON NULL AFTER user_intent
+    `);
+  }
+
   if (
     !existingColumns.has('input_type') ||
     !existingColumns.has('reference_text') ||
+    !existingColumns.has('user_intent') ||
+    !existingColumns.has('alignment_data') ||
     !existingColumns.has('analysis_data')
   ) {
     logger.info('MYSQL_PHASE3_CONTENT_SCHEMA_MIGRATED', { database: env.dbName });

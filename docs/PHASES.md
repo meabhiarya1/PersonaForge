@@ -246,7 +246,9 @@ Build:
 - Input processor
 - Content summarizer
 - Key-point extractor
+- Topic-reference alignment check
 - Script generator improvement
+- Duration-aware script word budget
 - Scene planner
 - Hook/title/description/hashtag suggestions
 - Basic reference source storage
@@ -314,6 +316,7 @@ Build:
 - Content Analysis panel in Project Output
 - Show summary, key points, and scene plan
 - Show what source/input mode was used
+- Show topic-reference alignment/conflict warnings
 - Add copy buttons for analysis/script
 - Add clear empty/error states for missing analysis
 
@@ -322,6 +325,39 @@ Learning:
 - Observability for AI workflows
 - Debugging prompt pipelines
 - Separating intermediate AI output from final output
+- Why AI systems should validate user input instead of fully trusting it
+
+### Phase v3.2.1: Topic / Reference Alignment Guard
+
+Goal:
+
+Detect when the user's topic and pasted reference content do not match well enough before
+the script is generated.
+
+Status: implemented as Input Intent & Alignment Guard.
+
+Example:
+
+```text
+Topic: Explain closures
+Reference text: Blog about hoisting
+```
+
+Expected behavior:
+
+- Detect the mismatch
+- Warn the user in the UI
+- Let the user choose whether to continue, edit the topic, or replace the reference text
+- Let the user choose a suggested reply or type their exact clarification
+- Re-check the alignment score after the user clarification
+- Proceed to generation only after the user confirms the intended relationship
+- Store the alignment result with the project for debugging
+
+Why this matters:
+
+PersonaForge should not blindly trust all user input. The system should identify conflicts,
+missing context, irrelevant references, and likely accidental copy/paste mistakes before
+spending provider credits on voice/avatar/rendering.
 
 ### Phase v3.3: Better Script Generation Using Analysis
 
@@ -334,6 +370,8 @@ Build:
 - Update script prompt to use analysis data
 - Generate stronger hook/title/script/scenes
 - Add duration-aware scene planning
+- Enforce script word budget based on requested duration
+- Show duration metadata in Project Output
 - Improve Hinglish/Hindi/English behavior
 - Add platform-aware script style later if needed
 

@@ -47,6 +47,138 @@ const normalizeAnalysis = (analysis, input) => ({
   sceneIdeas: Array.isArray(analysis.sceneIdeas) ? analysis.sceneIdeas : []
 });
 
+const normalizeAlignment = (alignment, input) => ({
+  intent: alignment.intent || 'unclear',
+  alignmentScore: Number.isFinite(Number(alignment.alignmentScore))
+    ? Math.min(Math.max(Number(alignment.alignmentScore), 0), 1)
+    : 0,
+  topicsDetected: Array.isArray(alignment.topicsDetected) ? alignment.topicsDetected : [],
+  relationship: alignment.relationship || '',
+  risk: ['low', 'medium', 'high'].includes(alignment.risk) ? alignment.risk : 'medium',
+  recommendation: ['continue', 'ask_user', 'warn_continue'].includes(alignment.recommendation)
+    ? alignment.recommendation
+    : 'ask_user',
+  question:
+    alignment.question ||
+    'Please confirm how PersonaForge should use the topic and reference text together.',
+  suggestedReplies: Array.isArray(alignment.suggestedReplies)
+    ? alignment.suggestedReplies.slice(0, 4)
+    : [
+        'Use the reference only as background context.',
+        'Explain both topics together in one video.',
+        'Ignore the reference and follow the topic only.'
+      ],
+  usedUserClarification: Boolean(input.userIntent)
+});
+
+const fallbackAlignment = (input) => {
+  const topicWords = new Set(
+    String(input.topic)
+      .toLowerCase()
+      .split(/[^a-z0-9]+/i)
+      .filter((word) => word.length > 3)
+  );
+  const referenceWords = new Set(
+    String(input.referenceText)
+      .toLowerCase()
+      .split(/[^a-z0-9]+/i)
+      .filter((word) => word.length > 3)
+  );
+  const overlap = [...topicWords].filter((word) => referenceWords.has(word)).length;
+  const score = input.userIntent ? 0.78 : Math.min(0.3 + overlap * 0.18, 0.92);
+  const risk = score >= 0.75 ? 'low' : score >= 0.45 ? 'medium' : 'high';
+
+  return {
+    intent: input.userIntent ? 'user_clarified' : 'unclear',
+    alignmentScore: score,
+    topicsDetected: [...topicWords].slice(0, 5),
+    relationship: input.userIntent
+      ? `User clarified intent: ${input.userIntent}`
+      : 'Fallback check found limited topic/reference overlap. Confirm the intended relationship before generation.',
+    risk,
+    recommendation: risk === 'high' && !input.userIntent ? 'ask_user' : 'warn_continue',
+    question: 'How should PersonaForge use this reference text with your topic?',
+    suggestedReplies: [
+      'Use the reference only as background context.',
+      'Explain both topics together in one video.',
+      'Focus on the topic and ignore unrelated reference parts.',
+      'Change the video topic to match the reference.'
+    ],
+    usedUserClarification: Boolean(input.userIntent)
+  };
+};
+
+export const analyzeInputIntent = async (input) => {
+  if (input.inputType !== 'reference_text') {
+    return normalizeAlignment(
+      {
+        intent: 'single_topic',
+        alignmentScore: 1,
+        topicsDetected: [input.topic],
+        relationship: 'Simple prompt mode does not require reference alignment.',
+        risk: 'low',
+        recommendation: 'continue',
+        question: '',
+        suggestedReplies: []
+      },
+      input
+    );
+  }
+
+  if (!env.openaiApiKey) {
+    if (env.allowMockProviders) return fallbackAlignment(input);
+    throw new Error(
+      'OPENAI_API_KEY is required for input intent checking. Set ALLOW_MOCK_PROVIDERS=true only for local pipeline testing.'
+    );
+  }
+
+  const systemPrompt = [
+    'You are an input intent and topic-reference alignment guard for an AI video generator.',
+    'Do not require a perfect single-topic match.',
+    'Allow related multi-topic, comparison, prerequisite, and background-context use cases.',
+    'Detect accidental mismatches, irrelevant references, unclear intent, and missing context.',
+    'Return only valid JSON with intent, alignmentScore, topicsDetected, relationship, risk, recommendation, question, and suggestedReplies.',
+    'intent must be one of single_topic, related_multi_topic, comparison, prerequisite_or_context, unrelated_reference, unclear_intent, user_clarified.',
+    'risk must be low, medium, or high.',
+    'recommendation must be continue, ask_user, or warn_continue.',
+    'suggestedReplies should give the user 3-4 short choices they can select or edit.'
+  ].join(' ');
+
+  const response = await retry(() =>
+    axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o-mini',
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: JSON.stringify({
+              topic: input.topic,
+              notes: input.notes,
+              referenceText: input.referenceText,
+              userClarification: input.userIntent,
+              language: input.language,
+              duration: input.duration,
+              targetAudience: input.targetAudience,
+              style: input.style
+            })
+          }
+        ]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${env.openaiApiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+  );
+
+  return normalizeAlignment(JSON.parse(response.data.choices[0].message.content), input);
+};
+
 export const analyzeContent = async (input) => {
   if (input.inputType !== 'reference_text') return null;
 
@@ -68,6 +200,8 @@ export const analyzeContent = async (input) => {
     topic: input.topic,
     notes: input.notes,
     referenceText: input.referenceText,
+    userIntent: input.userIntent,
+    alignmentData: input.alignmentData,
     language: input.language,
     duration: input.duration,
     targetAudience: input.targetAudience,

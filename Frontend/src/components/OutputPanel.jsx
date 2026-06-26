@@ -103,6 +103,23 @@ const OutputPanel = ({ project, jobId }) => {
         )}
       </div>
 
+      {project?.alignmentData ? (
+        <div className="mt-5 rounded-lg border border-line bg-white p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-ink">Input Alignment</h3>
+            <span className="rounded-full border border-line bg-mist px-2.5 py-1 text-xs font-semibold text-steel">
+              {Math.round((project.alignmentData.alignmentScore || 0) * 100)}% · {project.alignmentData.risk}
+            </span>
+          </div>
+          <p className="text-sm leading-6 text-steel">{project.alignmentData.relationship}</p>
+          {project.userIntent ? (
+            <p className="mt-3 rounded-lg border border-line bg-mist/50 px-3 py-2 text-sm text-ink">
+              <span className="font-semibold">Confirmed intent:</span> {project.userIntent}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {project?.finalVideoUrl ? (
         <div className="mt-5 overflow-hidden rounded-lg border border-line bg-black">
           <div className="relative aspect-video">
@@ -169,6 +186,19 @@ const OutputPanel = ({ project, jobId }) => {
               <p className="text-sm font-semibold text-ink">{project.scriptData.title || project.topic}</p>
               <p className="mt-1 text-sm text-steel">{project.scriptData.hook}</p>
             </div>
+            {project.scriptData.durationMeta ? (
+              <div className="grid gap-2 rounded-lg border border-line bg-white p-3 text-xs text-steel sm:grid-cols-3">
+                <span>
+                  Target: <strong className="text-ink">{project.scriptData.durationMeta.requestedDuration}s</strong>
+                </span>
+                <span>
+                  Words: <strong className="text-ink">{project.scriptData.durationMeta.actualWords}</strong>
+                </span>
+                <span>
+                  Estimate: <strong className="text-ink">{project.scriptData.durationMeta.estimatedDuration}s</strong>
+                </span>
+              </div>
+            ) : null}
             <p className="max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-white p-3 text-sm leading-6 text-steel ring-1 ring-line">
               {project.scriptData.script}
             </p>

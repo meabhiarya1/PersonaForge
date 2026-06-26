@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Play, RefreshCw, UserRoundCog, WandSparkles } from 'lucide-react';
+import { AlertTriangle, Loader2, Play, RefreshCw, ShieldCheck, UserRoundCog, WandSparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateVideo, listProfiles } from '../api/videoApi.js';
+import { checkInputIntent, generateVideo, listProfiles } from '../api/videoApi.js';
 
 const initialForm = {
   inputType: 'simple_prompt',
@@ -26,10 +26,12 @@ const inputClass =
 const secondaryButtonClass =
   'inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:border-teal hover:text-teal disabled:cursor-not-allowed disabled:opacity-60';
 
-const buildGeneratePayload = (form) => ({
+const buildGeneratePayload = (form, alignmentCheck = null, userIntent = '') => ({
   topic: form.topic,
   inputType: form.inputType,
   referenceText: form.inputType === 'reference_text' ? form.referenceText : '',
+  userIntent: form.inputType === 'reference_text' ? userIntent : '',
+  alignmentData: form.inputType === 'reference_text' ? alignmentCheck : null,
   notes: [
     form.notes,
     form.toneNotes ? `Tone preference: ${form.toneNotes}` : '',
@@ -64,13 +66,25 @@ const GenerationForm = ({ onCreated }) => {
   const [profiles, setProfiles] = useState([]);
   const [selectedProfileId, setSelectedProfileId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingIntent, setIsCheckingIntent] = useState(false);
+  const [alignmentCheck, setAlignmentCheck] = useState(null);
+  const [userIntent, setUserIntent] = useState('');
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
+
+  const resetAlignment = () => {
+    setAlignmentCheck(null);
+    setUserIntent('');
+  };
 
   const updateField = (field, value) => {
     setForm((current) => ({
       ...current,
       [field]: value
     }));
+
+    if (['topic', 'notes', 'referenceText', 'inputType'].includes(field)) {
+      resetAlignment();
+    }
   };
 
   const fetchProfiles = async () => {
@@ -98,22 +112,50 @@ const GenerationForm = ({ onCreated }) => {
     toast.success(`Applied profile: ${profile.name}`);
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
+  const validateRequiredInput = () => {
     if (!form.topic.trim()) {
       toast.error('Topic is required.');
-      return;
+      return false;
     }
 
     if (form.inputType === 'reference_text' && form.referenceText.trim().length < 50) {
       toast.error('Reference text should be at least 50 characters.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const runIntentCheck = async () => {
+    if (!validateRequiredInput()) return;
+
+    setIsCheckingIntent(true);
+    try {
+      const result = await checkInputIntent(buildGeneratePayload(form, null, userIntent));
+      setAlignmentCheck(result);
+      toast.success('Input intent checked.');
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setIsCheckingIntent(false);
+    }
+  };
+
+  const canConfirmAlignment =
+    form.inputType !== 'reference_text' ||
+    ['continue', 'warn_continue'].includes(alignmentCheck?.recommendation);
+
+  const submitGeneration = async () => {
+    if (!validateRequiredInput()) return;
+
+    if (form.inputType === 'reference_text' && !canConfirmAlignment) {
+      await runIntentCheck();
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const created = await generateVideo(buildGeneratePayload(form));
+      const created = await generateVideo(buildGeneratePayload(form, alignmentCheck, userIntent));
       toast.success('Video generation job created.');
       onCreated(created);
     } catch (error) {
@@ -121,6 +163,17 @@ const GenerationForm = ({ onCreated }) => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (form.inputType === 'reference_text' && !alignmentCheck) {
+      await runIntentCheck();
+      return;
+    }
+
+    await submitGeneration();
   };
 
   return (
@@ -247,18 +300,117 @@ const GenerationForm = ({ onCreated }) => {
         </label>
 
         {form.inputType === 'reference_text' ? (
-          <label className="grid gap-1.5">
-            <span className="text-sm font-semibold text-ink">Reference Text / Article Paste</span>
-            <textarea
-              className={`${inputClass} min-h-48 resize-y`}
-              value={form.referenceText}
-              onChange={(event) => updateField('referenceText', event.target.value)}
-              placeholder="Paste article content, long notes, documentation, or reference material. PersonaForge will summarize it, extract key points, and use it to write the script."
-            />
-            <span className="text-xs text-steel">
-              {form.referenceText.trim().length} / 20000 characters
-            </span>
-          </label>
+          <>
+            <label className="grid gap-1.5">
+              <span className="text-sm font-semibold text-ink">Reference Text / Article Paste</span>
+              <textarea
+                className={`${inputClass} min-h-48 resize-y`}
+                value={form.referenceText}
+                onChange={(event) => updateField('referenceText', event.target.value)}
+                placeholder="Paste article content, long notes, documentation, or reference material. PersonaForge will summarize it, extract key points, and use it to write the script."
+              />
+              <span className="text-xs text-steel">
+                {form.referenceText.trim().length} / 20000 characters
+              </span>
+            </label>
+
+            <section className="rounded-lg border border-line bg-slate-50/70 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-teal" aria-hidden="true" />
+                    <h3 className="text-sm font-semibold text-ink">Input Intent & Alignment Guard</h3>
+                  </div>
+                  <p className="mt-1 text-xs text-steel">
+                    Check whether your topic, notes, and reference text should be used together before spending generation credits.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={runIntentCheck}
+                  disabled={isCheckingIntent}
+                  className={secondaryButtonClass}
+                >
+                  {isCheckingIntent ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  {alignmentCheck ? 'Re-check Score' : 'Check Intent'}
+                </button>
+              </div>
+
+              {alignmentCheck ? (
+                <div className="mt-4 grid gap-3">
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-lg border border-line bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-steel">Score</p>
+                      <p className="mt-1 text-2xl font-semibold text-ink">
+                        {Math.round((alignmentCheck.alignmentScore || 0) * 100)}%
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-line bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-steel">Risk</p>
+                      <p className="mt-1 text-sm font-semibold capitalize text-ink">{alignmentCheck.risk}</p>
+                    </div>
+                    <div className="rounded-lg border border-line bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-steel">Recommendation</p>
+                      <p className="mt-1 text-sm font-semibold text-ink">{alignmentCheck.recommendation}</p>
+                    </div>
+                  </div>
+
+                  {alignmentCheck.relationship ? (
+                    <p className="rounded-lg border border-line bg-white px-3 py-2 text-sm leading-6 text-steel">
+                      {alignmentCheck.relationship}
+                    </p>
+                  ) : null}
+
+                  {alignmentCheck.recommendation === 'ask_user' ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      <div className="flex gap-2">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                        <span>{alignmentCheck.question}</span>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {alignmentCheck.suggestedReplies?.length ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {alignmentCheck.suggestedReplies.map((reply) => (
+                        <button
+                          key={reply}
+                          type="button"
+                          onClick={() => setUserIntent(reply)}
+                          className="rounded-lg border border-line bg-white px-3 py-2 text-left text-xs font-semibold text-ink transition hover:border-teal hover:text-teal"
+                        >
+                          {reply}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <label className="grid gap-1.5">
+                    <span className="text-sm font-semibold text-ink">Your clarification / exact intent</span>
+                    <textarea
+                      className={`${inputClass} min-h-20 resize-y`}
+                      value={userIntent}
+                      onChange={(event) => setUserIntent(event.target.value)}
+                      placeholder="Example: Explain both closures and hoisting together, but use hoisting only as background context."
+                    />
+                  </label>
+
+                  <p className="text-xs text-steel">
+                    If you edit or choose a clarification, click Re-check Score. When the recommendation becomes continue or warn_continue, generation can proceed.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-steel">
+                  First click Check Intent. If PersonaForge detects a mismatch, you can choose a suggested reply or type your exact intent.
+                </p>
+              )}
+            </section>
+          </>
         ) : null}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -320,15 +472,19 @@ const GenerationForm = ({ onCreated }) => {
 
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || isCheckingIntent}
         className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isSubmitting ? (
+        {isSubmitting || isCheckingIntent ? (
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
           <Play className="h-4 w-4" aria-hidden="true" />
         )}
-        Start Generation
+        {form.inputType === 'reference_text' && !alignmentCheck
+          ? 'Check Intent First'
+          : form.inputType === 'reference_text' && !canConfirmAlignment
+            ? 'Clarify and Re-check Before Generation'
+            : 'Start Generation'}
       </button>
     </form>
   );

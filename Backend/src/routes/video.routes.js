@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  checkInputIntent,
   generateVideo,
   getVideoProject,
   listVideos
@@ -8,6 +9,7 @@ import {
 const router = Router();
 
 router.post('/generate', generateVideo);
+router.post('/intent-check', checkInputIntent);
 router.get('/', listVideos);
 router.get('/:projectId', getVideoProject);
 

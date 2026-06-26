@@ -22,6 +22,8 @@ const projectColumnMap = {
   avatarId: VIDEO_PROJECT_COLUMNS.AVATAR_ID,
   inputType: VIDEO_PROJECT_COLUMNS.INPUT_TYPE,
   referenceText: VIDEO_PROJECT_COLUMNS.REFERENCE_TEXT,
+  userIntent: VIDEO_PROJECT_COLUMNS.USER_INTENT,
+  alignmentData: VIDEO_PROJECT_COLUMNS.ALIGNMENT_DATA,
   analysisData: VIDEO_PROJECT_COLUMNS.ANALYSIS_DATA,
   scriptData: VIDEO_PROJECT_COLUMNS.SCRIPT_DATA,
   audioUrl: VIDEO_PROJECT_COLUMNS.AUDIO_URL,
@@ -54,6 +56,8 @@ const mapProjectRow = (row) => {
     avatarId: row[VIDEO_PROJECT_COLUMNS.AVATAR_ID],
     inputType: row[VIDEO_PROJECT_COLUMNS.INPUT_TYPE],
     referenceText: row[VIDEO_PROJECT_COLUMNS.REFERENCE_TEXT],
+    userIntent: row[VIDEO_PROJECT_COLUMNS.USER_INTENT],
+    alignmentData: safeJsonParse(row[VIDEO_PROJECT_COLUMNS.ALIGNMENT_DATA]),
     analysisData: safeJsonParse(row[VIDEO_PROJECT_COLUMNS.ANALYSIS_DATA]),
     scriptData: safeJsonParse(row[VIDEO_PROJECT_COLUMNS.SCRIPT_DATA]),
     audioUrl: row[VIDEO_PROJECT_COLUMNS.AUDIO_URL],
@@ -83,7 +87,7 @@ const mapJobRow = (row) => {
 };
 
 const normalizeProjectValue = (key, value) => {
-  if (key === 'scriptData' || key === 'analysisData') {
+  if (key === 'scriptData' || key === 'analysisData' || key === 'alignmentData') {
     return safeJsonStringify(value);
   }
 
@@ -122,6 +126,8 @@ export const createVideoProject = async (input) => {
         ${VIDEO_PROJECT_COLUMNS.AVATAR_ID},
         ${VIDEO_PROJECT_COLUMNS.INPUT_TYPE},
         ${VIDEO_PROJECT_COLUMNS.REFERENCE_TEXT},
+        ${VIDEO_PROJECT_COLUMNS.USER_INTENT},
+        ${VIDEO_PROJECT_COLUMNS.ALIGNMENT_DATA},
         ${VIDEO_PROJECT_COLUMNS.STATUS}
       )
      VALUES
@@ -136,6 +142,8 @@ export const createVideoProject = async (input) => {
         :avatarId,
         :inputType,
         :referenceText,
+        :userIntent,
+        :alignmentData,
         :status
       )`,
     {
@@ -149,6 +157,8 @@ export const createVideoProject = async (input) => {
       avatarId: input.avatarId || null,
       inputType: input.inputType || 'simple_prompt',
       referenceText: input.referenceText || null,
+      userIntent: input.userIntent || null,
+      alignmentData: input.alignmentData ? safeJsonStringify(input.alignmentData) : null,
       status: JOB_STATUS.QUEUED
     }
   );

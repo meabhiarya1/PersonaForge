@@ -5,6 +5,11 @@ export const generateVideo = async (payload) => {
   return data.data;
 };
 
+export const checkInputIntent = async (payload) => {
+  const { data } = await axiosInstance.post('/api/videos/intent-check', payload);
+  return data.data;
+};
+
 export const getJobStatus = async (jobId) => {
   const { data } = await axiosInstance.get(`/api/jobs/${jobId}`);
   return data.data;
