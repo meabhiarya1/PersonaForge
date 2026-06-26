@@ -128,6 +128,48 @@ const syncPhase2Schema = async () => {
   await pool.query(CREATE_CREATOR_PROFILE_TABLE_SQL);
 };
 
+const syncPhase3Schema = async () => {
+  const [columns] = await pool.query(
+    `SELECT COLUMN_NAME AS columnName
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ?
+       AND TABLE_NAME = 'video_projects'
+       AND COLUMN_NAME IN ('input_type', 'reference_text', 'analysis_data')`,
+    [env.dbName]
+  );
+
+  const existingColumns = new Set(columns.map(({ columnName }) => columnName));
+
+  if (!existingColumns.has('input_type')) {
+    await pool.query(`
+      ALTER TABLE video_projects
+        ADD COLUMN input_type VARCHAR(50) DEFAULT 'simple_prompt' AFTER avatar_id
+    `);
+  }
+
+  if (!existingColumns.has('reference_text')) {
+    await pool.query(`
+      ALTER TABLE video_projects
+        ADD COLUMN reference_text MEDIUMTEXT NULL AFTER input_type
+    `);
+  }
+
+  if (!existingColumns.has('analysis_data')) {
+    await pool.query(`
+      ALTER TABLE video_projects
+        ADD COLUMN analysis_data JSON NULL AFTER reference_text
+    `);
+  }
+
+  if (
+    !existingColumns.has('input_type') ||
+    !existingColumns.has('reference_text') ||
+    !existingColumns.has('analysis_data')
+  ) {
+    logger.info('MYSQL_PHASE3_CONTENT_SCHEMA_MIGRATED', { database: env.dbName });
+  }
+};
+
 export const initializeDatabase = async () => {
   const setupConnection = await mysql.createConnection({
     host: env.dbHost,
@@ -143,6 +185,7 @@ export const initializeDatabase = async () => {
   await pool.query(CREATE_VIDEO_JOB_TABLE_SQL);
   await migrateLegacySchema();
   await syncPhase2Schema();
+  await syncPhase3Schema();
 
   logger.info('MYSQL_DATABASE_INITIALIZED', {
     database: env.dbName

@@ -4,8 +4,12 @@ import { retry } from '../../../utils/retry.js';
 
 const fallbackScript = (input) => ({
   title: input.topic,
-  hook: `Let's understand ${input.topic} in a simple way.`,
-  script: `${input.topic}. ${input.notes || ''} This video explains the concept for ${input.targetAudience}.`,
+  hook: input.analysisData?.suggestedAngle || `Let's understand ${input.topic} in a simple way.`,
+  script: [
+    `${input.topic}.`,
+    input.analysisData?.summary || input.notes || '',
+    `This video explains the concept for ${input.targetAudience}.`
+  ].filter(Boolean).join(' '),
   scenes: [
     {
       sceneNumber: 1,
@@ -15,9 +19,9 @@ const fallbackScript = (input) => ({
     },
     {
       sceneNumber: 2,
-      text: input.notes || `Break down ${input.topic} with a simple example.`,
+      text: input.analysisData?.keyPoints?.join(' ') || input.notes || `Break down ${input.topic} with a simple example.`,
       visualInstruction: 'Show simple visual examples beside the avatar.',
-      caption: input.notes || `Break down ${input.topic} with a simple example.`
+      caption: input.analysisData?.mainIdea || input.notes || `Break down ${input.topic} with a simple example.`
     }
   ]
 });
@@ -39,6 +43,7 @@ export const generateScriptWithOpenAI = async (input) => {
   const userPrompt = {
     topic: input.topic,
     notes: input.notes,
+    contentAnalysis: input.analysisData || null,
     language: input.language,
     duration: input.duration,
     targetAudience: input.targetAudience,

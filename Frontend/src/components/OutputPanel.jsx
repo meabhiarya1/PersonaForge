@@ -62,6 +62,47 @@ const OutputPanel = ({ project, jobId }) => {
         <AssetLink label="Final rendered MP4" href={project?.finalVideoUrl} icon={ExternalLink} />
       </div>
 
+      <div className="mt-5 rounded-lg border border-line bg-slate-50/70 p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-teal" aria-hidden="true" />
+            <h3 className="text-sm font-semibold text-ink">Content Analysis</h3>
+          </div>
+          {project?.inputType ? (
+            <span className="rounded-full border border-line bg-white px-2.5 py-1 text-xs font-semibold text-steel">
+              {project.inputType === 'reference_text' ? 'Reference text' : 'Simple prompt'}
+            </span>
+          ) : null}
+        </div>
+
+        {project?.analysisData ? (
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="rounded-lg bg-white p-3 ring-1 ring-line">
+              <p className="text-xs font-semibold uppercase tracking-wide text-steel">Summary</p>
+              <p className="mt-2 text-sm leading-6 text-ink">{project.analysisData.summary}</p>
+            </div>
+            <div className="rounded-lg bg-white p-3 ring-1 ring-line">
+              <p className="text-xs font-semibold uppercase tracking-wide text-steel">Key Points</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-ink">
+                {(project.analysisData.keyPoints || []).map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            </div>
+            {project.analysisData.suggestedAngle ? (
+              <div className="rounded-lg bg-white p-3 ring-1 ring-line lg:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-steel">Suggested Angle</p>
+                <p className="mt-2 text-sm leading-6 text-ink">{project.analysisData.suggestedAngle}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-sm text-steel">
+            Analysis appears here when the video is created with Reference Text mode.
+          </p>
+        )}
+      </div>
+
       {project?.finalVideoUrl ? (
         <div className="mt-5 overflow-hidden rounded-lg border border-line bg-black">
           <div className="relative aspect-video">

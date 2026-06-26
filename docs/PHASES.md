@@ -202,6 +202,30 @@ Goal:
 User can give richer inputs, and PersonaForge should understand them before generating a
 script.
 
+Status: in progress.
+
+UI direction:
+
+Keep Phase v3.1 inside the existing Create Video page as an input mode, not a separate
+top-level tab. Reference text is still part of creating a video. A separate Knowledge /
+Reference Library tab should come later when PersonaForge has reusable saved sources,
+embeddings, and vector search.
+
+Recommended Create Video input modes:
+
+- Simple prompt
+- Reference text / article paste
+
+Phase v3 flow:
+
+```text
+topic / notes / reference text
+  -> content analysis
+  -> key points + scene plan
+  -> improved script generation
+  -> existing Phase v1/v2 video pipeline
+```
+
 Inputs:
 
 - Topic or idea
@@ -244,6 +268,168 @@ Important note:
 
 RAG/vector database is usually not model training. It is a memory/retrieval layer that lets
 the AI use your documents, references, and examples at generation time.
+
+### Phase v3.1: Manual Reference Text Analyzer
+
+Goal:
+
+User can paste long reference text, notes, or article content directly into Create Video.
+PersonaForge analyzes it before generating the script.
+
+Status: implemented, ready for end-to-end testing.
+
+Build:
+
+- Add `inputType` to generation input
+- Add `referenceText` field to generation input
+- Add content analyzer backend service
+- Produce structured analysis:
+  - summary
+  - main idea
+  - key points
+  - suggested angle
+  - scene ideas
+  - missing context
+- Store analysis with the video project
+- Use analysis as context for script generation
+- Show analysis in Project Output
+- Add backend validation for reference text mode
+
+Learning:
+
+- Summarization
+- Extraction vs generation
+- Structured JSON output from LLMs
+- Prompt design for analysis
+- Why we analyze before generating
+
+### Phase v3.2: Analysis Visibility and Debugging
+
+Goal:
+
+Make the AI thinking process visible enough to debug bad scripts.
+
+Build:
+
+- Content Analysis panel in Project Output
+- Show summary, key points, and scene plan
+- Show what source/input mode was used
+- Add copy buttons for analysis/script
+- Add clear empty/error states for missing analysis
+
+Learning:
+
+- Observability for AI workflows
+- Debugging prompt pipelines
+- Separating intermediate AI output from final output
+
+### Phase v3.3: Better Script Generation Using Analysis
+
+Goal:
+
+Script generation should use analyzed structure instead of raw notes only.
+
+Build:
+
+- Update script prompt to use analysis data
+- Generate stronger hook/title/script/scenes
+- Add duration-aware scene planning
+- Improve Hinglish/Hindi/English behavior
+- Add platform-aware script style later if needed
+
+Learning:
+
+- Prompt chaining
+- Context compression
+- Content planning
+- Script structure for short videos
+
+### Phase v3.4: URL / Article Ingestion
+
+Goal:
+
+User can provide a URL and PersonaForge extracts readable article text.
+
+Build:
+
+- URL input mode
+- URL fetch service
+- Article text extraction
+- Basic source metadata
+- Safety limits for content length
+- Feed extracted text into the same v3.1 analyzer
+
+Learning:
+
+- Web extraction basics
+- Cleaning noisy HTML
+- Source metadata
+- Input sanitization and limits
+
+### Phase v3.5: PDF / Document Ingestion
+
+Goal:
+
+User can upload or provide document content for video generation.
+
+Build:
+
+- PDF/document input mode
+- Text extraction
+- Document chunking for long files
+- Basic document metadata
+- Feed extracted text into analyzer
+
+Learning:
+
+- Document parsing
+- Chunking long text
+- Token limits
+- Preprocessing before LLM calls
+
+### Phase v3.6: Embeddings and Vector Database Basics
+
+Goal:
+
+Learn and add the foundation for searchable reference memory.
+
+Build:
+
+- Embedding generation service
+- Choose local/dev vector storage option
+- Store chunks with embeddings
+- Similarity search endpoint
+- Keep this separate from video generation first
+
+Learning:
+
+- Embeddings
+- Vector similarity
+- Chunk size and overlap
+- Retrieval vs generation
+- Why vector DB is not the same as fine-tuning
+
+### Phase v3.7: Basic RAG for Creator / Reference Memory
+
+Goal:
+
+PersonaForge can retrieve relevant stored references while generating a new script.
+
+Build:
+
+- Save reusable reference documents
+- Retrieve relevant chunks by topic
+- Inject retrieved context into analyzer/script prompts
+- Show which references were used
+- Add simple source attribution/debug panel
+
+Learning:
+
+- Retrieval augmented generation
+- Grounding
+- Reducing hallucination
+- Context ranking
+- Source-aware generation
 
 ## Phase v4: Better Video Engine / Animated Explanation Layer
 

@@ -20,6 +20,9 @@ const projectColumnMap = {
   targetAudience: VIDEO_PROJECT_COLUMNS.TARGET_AUDIENCE,
   style: VIDEO_PROJECT_COLUMNS.STYLE,
   avatarId: VIDEO_PROJECT_COLUMNS.AVATAR_ID,
+  inputType: VIDEO_PROJECT_COLUMNS.INPUT_TYPE,
+  referenceText: VIDEO_PROJECT_COLUMNS.REFERENCE_TEXT,
+  analysisData: VIDEO_PROJECT_COLUMNS.ANALYSIS_DATA,
   scriptData: VIDEO_PROJECT_COLUMNS.SCRIPT_DATA,
   audioUrl: VIDEO_PROJECT_COLUMNS.AUDIO_URL,
   avatarVideoUrl: VIDEO_PROJECT_COLUMNS.AVATAR_VIDEO_URL,
@@ -49,6 +52,9 @@ const mapProjectRow = (row) => {
     targetAudience: row[VIDEO_PROJECT_COLUMNS.TARGET_AUDIENCE],
     style: row[VIDEO_PROJECT_COLUMNS.STYLE],
     avatarId: row[VIDEO_PROJECT_COLUMNS.AVATAR_ID],
+    inputType: row[VIDEO_PROJECT_COLUMNS.INPUT_TYPE],
+    referenceText: row[VIDEO_PROJECT_COLUMNS.REFERENCE_TEXT],
+    analysisData: safeJsonParse(row[VIDEO_PROJECT_COLUMNS.ANALYSIS_DATA]),
     scriptData: safeJsonParse(row[VIDEO_PROJECT_COLUMNS.SCRIPT_DATA]),
     audioUrl: row[VIDEO_PROJECT_COLUMNS.AUDIO_URL],
     avatarVideoUrl: row[VIDEO_PROJECT_COLUMNS.AVATAR_VIDEO_URL],
@@ -77,7 +83,7 @@ const mapJobRow = (row) => {
 };
 
 const normalizeProjectValue = (key, value) => {
-  if (key === 'scriptData') {
+  if (key === 'scriptData' || key === 'analysisData') {
     return safeJsonStringify(value);
   }
 
@@ -114,6 +120,8 @@ export const createVideoProject = async (input) => {
         ${VIDEO_PROJECT_COLUMNS.TARGET_AUDIENCE},
         ${VIDEO_PROJECT_COLUMNS.STYLE},
         ${VIDEO_PROJECT_COLUMNS.AVATAR_ID},
+        ${VIDEO_PROJECT_COLUMNS.INPUT_TYPE},
+        ${VIDEO_PROJECT_COLUMNS.REFERENCE_TEXT},
         ${VIDEO_PROJECT_COLUMNS.STATUS}
       )
      VALUES
@@ -126,6 +134,8 @@ export const createVideoProject = async (input) => {
         :targetAudience,
         :style,
         :avatarId,
+        :inputType,
+        :referenceText,
         :status
       )`,
     {
@@ -137,6 +147,8 @@ export const createVideoProject = async (input) => {
       targetAudience: input.targetAudience || null,
       style: input.style || null,
       avatarId: input.avatarId || null,
+      inputType: input.inputType || 'simple_prompt',
+      referenceText: input.referenceText || null,
       status: JOB_STATUS.QUEUED
     }
   );

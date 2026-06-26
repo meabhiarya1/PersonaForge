@@ -2,6 +2,7 @@ import logger from '../../config/logger.js';
 import env from '../../config/env.js';
 import { JOB_STEP, JOB_STEP_STATUS } from '../../constants/jobStep.js';
 import { JOB_STATUS } from '../../constants/jobStatus.js';
+import { analyzeContent } from '../../services/content/contentAnalyzer.service.js';
 import { generateScript } from '../../services/script/script.service.js';
 import { generateVoice } from '../../services/voice/voice.service.js';
 import { startAvatarGeneration } from '../../services/avatar/avatar.service.js';
@@ -48,20 +49,29 @@ export const generateVideoProcessor = async (job) => {
       provider: 'openai',
       startedAt: new Date()
     });
-    const scriptData = await generateScript(input);
+    const analysisData = await analyzeContent(input);
+    if (analysisData) {
+      await setStep({
+        projectId,
+        jobId,
+        status: JOB_STATUS.PROCESSING,
+        updates: { analysisData }
+      });
+    }
+    const scriptData = await generateScript(input, analysisData);
     await upsertJobStep({
       jobId,
       step: activeStep,
       status: JOB_STEP_STATUS.COMPLETED,
       provider: 'openai',
-      outputData: { scriptData },
+      outputData: { analysisData, scriptData },
       completedAt: new Date()
     });
     await setStep({
       projectId,
       jobId,
       status: JOB_STATUS.SCRIPT_GENERATED,
-      updates: { scriptData }
+      updates: { analysisData, scriptData }
     });
     logger.info('SCRIPT_GENERATION_COMPLETED', { projectId, queueJobId });
 

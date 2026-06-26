@@ -5,8 +5,10 @@ import { toast } from 'sonner';
 import { generateVideo, listProfiles } from '../api/videoApi.js';
 
 const initialForm = {
+  inputType: 'simple_prompt',
   topic: 'Explain JavaScript closures',
   notes: 'Explain in a simple way with one practical example',
+  referenceText: '',
   language: 'Hinglish',
   duration: 60,
   targetAudience: 'beginner developers',
@@ -26,6 +28,8 @@ const secondaryButtonClass =
 
 const buildGeneratePayload = (form) => ({
   topic: form.topic,
+  inputType: form.inputType,
+  referenceText: form.inputType === 'reference_text' ? form.referenceText : '',
   notes: [
     form.notes,
     form.toneNotes ? `Tone preference: ${form.toneNotes}` : '',
@@ -102,6 +106,11 @@ const GenerationForm = ({ onCreated }) => {
       return;
     }
 
+    if (form.inputType === 'reference_text' && form.referenceText.trim().length < 50) {
+      toast.error('Reference text should be at least 50 characters.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const created = await generateVideo(buildGeneratePayload(form));
@@ -123,7 +132,7 @@ const GenerationForm = ({ onCreated }) => {
             <h2 className="text-lg font-semibold text-ink">Create Video</h2>
           </div>
           <p className="mt-1 text-sm text-steel">
-            Generate from a prompt and optionally apply a saved style profile.
+            Generate from a prompt, or let PersonaForge analyze pasted reference content first.
           </p>
         </div>
       </div>
@@ -170,6 +179,42 @@ const GenerationForm = ({ onCreated }) => {
       </section>
 
       <div className="mt-5 grid gap-4">
+        <section className="rounded-lg border border-line bg-slate-50/70 p-3">
+          <h3 className="text-sm font-semibold text-ink">Input Mode</h3>
+          <p className="mt-1 text-xs text-steel">
+            Phase 3.1 adds a content analysis step before script generation when reference text is selected.
+          </p>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {[
+              {
+                value: 'simple_prompt',
+                title: 'Simple Prompt',
+                description: 'Use topic and notes directly.'
+              },
+              {
+                value: 'reference_text',
+                title: 'Reference Text',
+                description: 'Analyze pasted article/notes first.'
+              }
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => updateField('inputType', option.value)}
+                className={`rounded-lg border p-3 text-left transition ${
+                  form.inputType === option.value
+                    ? 'border-teal/40 bg-teal/10 text-teal'
+                    : 'border-line bg-white text-ink hover:border-teal/40'
+                }`}
+              >
+                <span className="block text-sm font-semibold">{option.title}</span>
+                <span className="mt-1 block text-xs text-steel">{option.description}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <label className="grid gap-1.5">
             <span className="text-sm font-semibold text-ink">Topic</span>
@@ -200,6 +245,21 @@ const GenerationForm = ({ onCreated }) => {
             placeholder="Audience, examples, tone, and important points"
           />
         </label>
+
+        {form.inputType === 'reference_text' ? (
+          <label className="grid gap-1.5">
+            <span className="text-sm font-semibold text-ink">Reference Text / Article Paste</span>
+            <textarea
+              className={`${inputClass} min-h-48 resize-y`}
+              value={form.referenceText}
+              onChange={(event) => updateField('referenceText', event.target.value)}
+              placeholder="Paste article content, long notes, documentation, or reference material. PersonaForge will summarize it, extract key points, and use it to write the script."
+            />
+            <span className="text-xs text-steel">
+              {form.referenceText.trim().length} / 20000 characters
+            </span>
+          </label>
+        ) : null}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <label className="grid gap-1.5">

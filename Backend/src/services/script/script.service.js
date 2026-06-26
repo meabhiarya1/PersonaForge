@@ -1,7 +1,10 @@
 import { generateScriptWithOpenAI } from './providers/openai.provider.js';
 
-export const generateScript = async (input) => {
-  const scriptData = await generateScriptWithOpenAI(input);
+export const generateScript = async (input, analysisData = null) => {
+  const scriptData = await generateScriptWithOpenAI({
+    ...input,
+    analysisData
+  });
 
   return {
     title: scriptData.title || input.topic,
