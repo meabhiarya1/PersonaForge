@@ -473,11 +473,24 @@ Learn and add the foundation for searchable reference memory.
 
 Build:
 
-- Embedding generation service
-- Choose local/dev vector storage option
-- Store chunks with embeddings
-- Similarity search endpoint
-- Keep this separate from video generation first
+- Embedding generation service using `text-embedding-3-small`
+- MySQL-backed local/dev reference document and chunk storage
+- Configurable word chunking with overlap
+- Store each chunk with its embedding and source metadata
+- Cosine similarity search endpoint with optional document filtering
+- Document list and delete endpoints
+- Keep this separate from video generation until Phase v3.7
+
+API:
+
+- `POST /api/memory/documents` — chunk, embed, and save reference text
+- `GET /api/memory/documents` — list saved reference documents
+- `POST /api/memory/search` — semantically search saved chunks
+- `DELETE /api/memory/documents/:documentId` — remove a document and its chunks
+
+Status:
+
+- Implemented; pending end-to-end testing with the configured OpenAI key and MySQL database.
 
 Learning:
 
