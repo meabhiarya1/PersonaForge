@@ -134,7 +134,7 @@ const syncPhase3Schema = async () => {
      FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = ?
        AND TABLE_NAME = 'video_projects'
-       AND COLUMN_NAME IN ('input_type', 'reference_text', 'user_intent', 'alignment_data', 'analysis_data')`,
+       AND COLUMN_NAME IN ('input_type', 'source_url', 'reference_text', 'user_intent', 'alignment_data', 'analysis_data')`,
     [env.dbName]
   );
 
@@ -151,6 +151,13 @@ const syncPhase3Schema = async () => {
     await pool.query(`
       ALTER TABLE video_projects
         ADD COLUMN reference_text MEDIUMTEXT NULL AFTER input_type
+    `);
+  }
+
+  if (!existingColumns.has('source_url')) {
+    await pool.query(`
+      ALTER TABLE video_projects
+        ADD COLUMN source_url TEXT NULL AFTER input_type
     `);
   }
 
@@ -177,6 +184,7 @@ const syncPhase3Schema = async () => {
 
   if (
     !existingColumns.has('input_type') ||
+    !existingColumns.has('source_url') ||
     !existingColumns.has('reference_text') ||
     !existingColumns.has('user_intent') ||
     !existingColumns.has('alignment_data') ||

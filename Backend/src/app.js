@@ -59,7 +59,7 @@ app.use((req, res, next) => {
 });
 
 app.use((error, req, res, next) => {
-  const statusCode = error.statusCode || 500;
+  const statusCode = error.statusCode || (String(error.code || '').startsWith('LIMIT_') ? 400 : 500);
 
   logger.error('REQUEST_ERROR', {
     message: error.message,

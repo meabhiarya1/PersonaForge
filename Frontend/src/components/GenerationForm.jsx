@@ -1,8 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Loader2, Play, RefreshCw, ShieldCheck, UserRoundCog, WandSparkles } from 'lucide-react';
+import {
+  AlertTriangle,
+  ClipboardPaste,
+  FileUp,
+  Loader2,
+  Play,
+  RefreshCw,
+  ShieldCheck,
+  UserRoundCog,
+  WandSparkles
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { checkInputIntent, generateVideo, listProfiles } from '../api/videoApi.js';
+import { checkInputIntent, extractSourceMaterial, generateVideo, listProfiles } from '../api/videoApi.js';
 
 const initialForm = {
   inputType: 'simple_prompt',
@@ -25,6 +35,13 @@ const inputClass =
 
 const secondaryButtonClass =
   'inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:border-teal hover:text-teal disabled:cursor-not-allowed disabled:opacity-60';
+
+const formatBytes = (bytes = 0) => {
+  if (!bytes) return '0 B';
+  const units = ['B', 'KB', 'MB'];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+};
 
 const buildGeneratePayload = (form, alignmentCheck = null, userIntent = '') => ({
   topic: form.topic,
@@ -70,6 +87,10 @@ const GenerationForm = ({ onCreated }) => {
   const [alignmentCheck, setAlignmentCheck] = useState(null);
   const [userIntent, setUserIntent] = useState('');
   const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
+  const [sourceFiles, setSourceFiles] = useState([]);
+  const [pastedSourceText, setPastedSourceText] = useState('');
+  const [isExtractingSource, setIsExtractingSource] = useState(false);
+  const [sourceExtraction, setSourceExtraction] = useState(null);
 
   const resetAlignment = () => {
     setAlignmentCheck(null);
@@ -84,6 +105,61 @@ const GenerationForm = ({ onCreated }) => {
 
     if (['topic', 'notes', 'referenceText', 'inputType'].includes(field)) {
       resetAlignment();
+    }
+  };
+
+  const appendSourceFiles = (files) => {
+    const nextFiles = Array.from(files || []);
+    if (!nextFiles.length) return;
+
+    setSourceFiles((current) => [...current, ...nextFiles].slice(0, 8));
+    updateField('inputType', 'reference_text');
+    setSourceExtraction(null);
+  };
+
+  const removeSourceFile = (indexToRemove) => {
+    setSourceFiles((current) => current.filter((_, index) => index !== indexToRemove));
+    setSourceExtraction(null);
+  };
+
+  const handleReferencePaste = (event) => {
+    const imageFiles = Array.from(event.clipboardData?.items || [])
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter(Boolean);
+
+    if (!imageFiles.length) return;
+
+    event.preventDefault();
+    appendSourceFiles(imageFiles);
+    toast.success('Screenshot image added. Click Extract into Reference Text.');
+  };
+
+  const runSourceExtraction = async () => {
+    if (!sourceFiles.length && !pastedSourceText.trim()) {
+      toast.error('Upload a PDF/image, paste a screenshot, or add text first.');
+      return;
+    }
+
+    setIsExtractingSource(true);
+    try {
+      const result = await extractSourceMaterial({
+        files: sourceFiles,
+        pastedText: pastedSourceText
+      });
+
+      updateField('inputType', 'reference_text');
+      updateField('referenceText', result.extractedText);
+      setSourceExtraction(result);
+      toast.success('Source extracted into Reference Text.');
+
+      if (result.warnings?.length) {
+        toast.warning(result.warnings[0]);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setIsExtractingSource(false);
     }
   };
 
@@ -247,8 +323,8 @@ const GenerationForm = ({ onCreated }) => {
               },
               {
                 value: 'reference_text',
-                title: 'Reference Text',
-                description: 'Analyze pasted article/notes first.'
+                title: 'Reference / Upload',
+                description: 'Analyze pasted text, PDF, or screenshots first.'
               }
             ].map((option) => (
               <button
@@ -301,13 +377,119 @@ const GenerationForm = ({ onCreated }) => {
 
         {form.inputType === 'reference_text' ? (
           <>
+            <section className="rounded-lg border border-line bg-slate-50/70 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <FileUp className="h-4 w-4 text-teal" aria-hidden="true" />
+                    <h3 className="text-sm font-semibold text-ink">Source Extraction</h3>
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-steel">
+                    Upload selectable-text PDFs or JPG/PNG/WebP screenshots. You can also paste a screenshot directly into the Reference Text box.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={runSourceExtraction}
+                  disabled={isExtractingSource}
+                  className={secondaryButtonClass}
+                >
+                  {isExtractingSource ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <ClipboardPaste className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  Extract into Reference Text
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-steel">Upload sources</span>
+                  <input
+                    className={inputClass}
+                    type="file"
+                    multiple
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    onChange={(event) => {
+                      appendSourceFiles(event.target.files);
+                      event.target.value = '';
+                    }}
+                  />
+                  <span className="text-xs text-steel">Up to 8 files. PDF, JPG, PNG, and WebP are supported.</span>
+                </label>
+
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-steel">Optional pasted source text</span>
+                  <textarea
+                    className={`${inputClass} min-h-24 resize-y`}
+                    value={pastedSourceText}
+                    onChange={(event) => {
+                      setPastedSourceText(event.target.value);
+                      setSourceExtraction(null);
+                    }}
+                    placeholder="Paste raw text here if you want it merged with uploaded PDFs/images."
+                  />
+                </label>
+              </div>
+
+              {sourceFiles.length ? (
+                <div className="mt-3 grid gap-2">
+                  {sourceFiles.map((file, index) => (
+                    <div
+                      key={`${file.name}-${file.size}-${index}`}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs text-steel"
+                    >
+                      <span className="font-semibold text-ink">{file.name}</span>
+                      <div className="flex items-center gap-3">
+                        <span>{file.type || 'unknown'} · {formatBytes(file.size)}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeSourceFile(index)}
+                          className="font-semibold text-red-600 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {sourceExtraction ? (
+                <div className="mt-3 rounded-lg border border-teal/20 bg-teal/5 p-3 text-xs leading-5 text-steel">
+                  <p className="font-semibold text-ink">
+                    Extracted {sourceExtraction.characterCount} characters from {sourceExtraction.sourceCount} source(s).
+                  </p>
+                  {sourceExtraction.sources?.length ? (
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {sourceExtraction.sources.map((source) => (
+                        <li key={`${source.type}-${source.label}`}>
+                          {source.label} · {source.type} · {source.characterCount} characters
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {sourceExtraction.warnings?.length ? (
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-amber-700">
+                      {sourceExtraction.warnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+
             <label className="grid gap-1.5">
-              <span className="text-sm font-semibold text-ink">Reference Text / Article Paste</span>
+              <span className="text-sm font-semibold text-ink">Reference Text</span>
               <textarea
                 className={`${inputClass} min-h-48 resize-y`}
                 value={form.referenceText}
                 onChange={(event) => updateField('referenceText', event.target.value)}
-                placeholder="Paste article content, long notes, documentation, or reference material. PersonaForge will summarize it, extract key points, and use it to write the script."
+                onPaste={handleReferencePaste}
+                placeholder="Paste source text here, or paste a screenshot image directly into this box. PersonaForge will summarize it, extract key points, and use it to write the script."
               />
               <span className="text-xs text-steel">
                 {form.referenceText.trim().length} / 20000 characters

@@ -393,48 +393,77 @@ Learning:
 - Content planning
 - Script structure for short videos
 
-### Phase v3.4: URL / Article Ingestion
+### Phase v3.4: Safer Source Ingestion Options
 
 Goal:
 
-User can provide a URL and PersonaForge extracts readable article text.
+Support richer source inputs without relying on fragile website scraping.
 
-Build:
+Status: replanned. Direct URL/article extraction was removed from the active product flow
+because many sites block backend fetches with 403, paywalls, bot protection, or JavaScript-only
+rendering.
 
-- URL input mode
-- URL fetch service
-- Article text extraction
-- Basic source metadata
-- Safety limits for content length
-- Feed extracted text into the same v3.1 analyzer
+Removed from active flow:
+
+- Backend URL fetch/article extraction
+- Article URL input mode
+- `/api/videos/extract-article`
+
+Safer build direction:
+
+- PDF/document text extraction
+- Screenshot/image paste with OCR or vision extraction
+- Video link handling through transcript/caption extraction where available
+- Manual article paste through Reference Text mode remains the reliable fallback
+- All extracted text should reuse the existing v3.1 analyzer and v3.2 alignment guard
+
+Why URL scraping was removed:
+
+- Some websites block bot/server fetches.
+- Some pages have noisy HTML, paywalls, or client-rendered content that may extract poorly.
+- It creates inconsistent behavior during local testing.
+- It can waste time debugging website restrictions instead of improving PersonaForge.
 
 Learning:
 
-- Web extraction basics
-- Cleaning noisy HTML
+- Input reliability tradeoffs
 - Source metadata
 - Input sanitization and limits
+- OCR / vision extraction basics
+- Transcript extraction basics
 
-### Phase v3.5: PDF / Document Ingestion
+### Phase v3.5: PDF / Image / Screenshot Source Ingestion
 
 Goal:
 
-User can upload or provide document content for video generation.
+User can upload or paste document/image source material, extract usable text/context,
+and send it through the existing analyzer, alignment guard, script generation, and video pipeline.
 
 Build:
 
-- PDF/document input mode
-- Text extraction
-- Document chunking for long files
-- Basic document metadata
-- Feed extracted text into analyzer
+- Source extraction panel inside Reference / Upload mode
+- PDF upload with selectable text extraction
+- Multi-image upload for JPG/PNG/WebP pages or screenshots
+- Screenshot paste from clipboard into the Reference Text area
+- OpenAI vision-based OCR/context extraction for image sources
+- Optional pasted source text merged with uploaded files
+- Extraction metadata and warnings shown in the UI
+- Extracted text fills the existing Reference Text field
+- Existing v3.1 analyzer, v3.2 alignment guard, and v3.3 script duration logic remain the generation path
+
+Important limitation:
+
+- Scanned PDFs do not always contain selectable text. For those, upload page screenshots/images until PDF-to-image conversion is added.
+- Extraction prepares source text only. The user still runs the intent/alignment check before generation.
 
 Learning:
 
 - Document parsing
-- Chunking long text
+- OCR and vision extraction
+- Multi-source preprocessing
 - Token limits
 - Preprocessing before LLM calls
+- Why extracted content still needs AI/user alignment before script generation
 
 ### Phase v3.6: Embeddings and Vector Database Basics
 

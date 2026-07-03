@@ -6,6 +6,7 @@ import {
   validateInputIntentInput
 } from '../validations/video.validation.js';
 import { analyzeInputIntent } from '../services/content/contentAnalyzer.service.js';
+import { extractSourceMaterial } from '../services/content/sourceExtraction.service.js';
 import {
   createVideoProject,
   createVideoJob,
@@ -56,6 +57,15 @@ export const checkInputIntent = asyncHandler(async (req, res) => {
   const alignment = await analyzeInputIntent(input);
 
   sendSuccess(res, 'Input intent checked', alignment);
+});
+
+export const extractSource = asyncHandler(async (req, res) => {
+  const extraction = await extractSourceMaterial({
+    files: req.files || [],
+    pastedText: req.body?.pastedText || ''
+  });
+
+  sendSuccess(res, 'Source material extracted', extraction);
 });
 
 export const getVideoProject = asyncHandler(async (req, res) => {

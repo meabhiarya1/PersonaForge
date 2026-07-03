@@ -10,6 +10,26 @@ export const checkInputIntent = async (payload) => {
   return data.data;
 };
 
+export const extractSourceMaterial = async ({ files = [], pastedText = '' }) => {
+  const formData = new FormData();
+
+  files.forEach((file) => {
+    formData.append('files', file);
+  });
+
+  if (pastedText) {
+    formData.append('pastedText', pastedText);
+  }
+
+  const { data } = await axiosInstance.post('/api/videos/extract-source', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    },
+    timeout: 120000
+  });
+  return data.data;
+};
+
 export const getJobStatus = async (jobId) => {
   const { data } = await axiosInstance.get(`/api/jobs/${jobId}`);
   return data.data;

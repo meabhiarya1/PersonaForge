@@ -93,7 +93,9 @@ const OutputPanel = ({ project, jobId }) => {
         {project?.inputType === 'reference_text' ? (
           <div className="mb-3 rounded-lg border border-line bg-white p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-steel">Source Snapshot</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-steel">
+                Source Snapshot
+              </p>
               <CopyButton value={project?.referenceText} label="Copy Source" />
             </div>
             <p className="mt-2 max-h-24 overflow-auto whitespace-pre-wrap text-xs leading-5 text-steel">
